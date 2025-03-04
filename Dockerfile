@@ -5,13 +5,17 @@ ENV NODE_ENV=$NODE_ENV
 
 USER node
 
-WORKDIR /opt/node_app
+RUN mkdir -p /home/node/opt/node_app
+WORKDIR /home/node/opt/node_app
 
 COPY --chown=node:node package.json package-lock.json* ./
-RUN npm ci && npm cache clean --force
-ENV PATH=/opt/node_app/node_modules/.bin:$PATH
 
-WORKDIR /opt/node_app/app
+RUN npm ci
+RUN npm cache clean --force
+ENV PATH=/home/node/opt/node_app/node_modules/.bin:$PATH
+
+RUN mkdir -p /home/node/opt/node_app
 COPY --chown=node:node . .
+
 RUN npm run build
 CMD [ "npm", "run", "prod" ]
