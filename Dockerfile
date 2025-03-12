@@ -14,7 +14,8 @@ RUN npm ci
 RUN npm cache clean --force
 ENV PATH=/home/node/opt/node_app/node_modules/.bin:$PATH
 
-RUN mkdir -p /home/node/opt/node_app
+RUN mkdir -p /home/node/opt/node_app/app
+WORKDIR /home/node/opt/node_app/app
 COPY --chown=node:node . .
 
 RUN npm run build

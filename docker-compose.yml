@@ -9,10 +9,10 @@ services:
     env_file:
       - .env
     volumes:
-      - .:/opt/node_app/app
-      - ./package.json:/opt/node_app//package.json
-      - ./package-lock.json:/opt/node_app//package-lock.json
-      - notused:/opt/node_app/app/node_modules
+      - .:/home/node/opt/node_app/app
+      - ./package.json:/home/node/opt/node_app/package.json
+      - ./package-lock.json:/home/node/opt/node_app/package-lock.json
+      - notused:/home/node/opt/node_app/app/node_modules
     environment:
       - NODE_ENV=development
 
