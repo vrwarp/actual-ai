@@ -2,6 +2,7 @@ import dotenv from 'dotenv';
 import fs from 'fs';
 
 const defaultPromptTemplate = fs.readFileSync('./src/templates/prompt.hbs', 'utf8').trim();
+const defaultManualPromptTemplate = fs.readFileSync('./src/templates/manual.hbs', 'utf8').trim();
 
 dotenv.config();
 
@@ -26,6 +27,7 @@ export const ollamaBaseURL = process.env.OLLAMA_BASE_URL ?? 'http://localhost:11
 export const ollamaModel = process.env.OLLAMA_MODEL ?? 'llama3.1';
 export const dataDir = '/tmp/actual-ai/';
 export const promptTemplate = process.env.PROMPT_TEMPLATE ?? defaultPromptTemplate;
+export const manualPromptTemplate = process.env.MANUAL_PROMPT_TEMPLATE ?? defaultManualPromptTemplate;
 export const notGuessedTag = process.env.NOT_GUESSED_TAG ?? '#actual-ai-miss';
 export const guessedTag = process.env.GUESSED_TAG ?? '#actual-ai';
 export const groqApiKey = process.env.GROQ_API_KEY ?? '';

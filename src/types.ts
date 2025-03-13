@@ -58,5 +58,6 @@ export interface PromptGeneratorI {
     categoryGroups: APICategoryGroupEntity[],
     transaction: TransactionEntity,
     payees: APIPayeeEntity[],
+    manualTransactions: TransactionEntity[],
   ): string
 }

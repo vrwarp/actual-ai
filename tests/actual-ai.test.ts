@@ -17,6 +17,7 @@ describe('ActualAiService', () => {
   let inMemoryApiService: InMemoryActualApiService;
   let mockedLlmService: MockedLlmService;
   let mockedPromptGenerator: MockedPromptGenerator;
+  let mockedManualPromptGenerator: MockedPromptGenerator;
   let syncAccountsBeforeClassify = false;
   const GUESSED_TAG = '#actual-ai';
   const NOT_GUESSED_TAG = '#actual-ai-miss';
@@ -25,6 +26,7 @@ describe('ActualAiService', () => {
     inMemoryApiService = new InMemoryActualApiService();
     mockedLlmService = new MockedLlmService();
     mockedPromptGenerator = new MockedPromptGenerator();
+    mockedManualPromptGenerator = new MockedPromptGenerator();
     const categoryGroups: APICategoryGroupEntity[] = GivenActualData.createSampleCategoryGroups();
     const categories: APICategoryEntity[] = GivenActualData.createSampleCategories();
     const payees: APIPayeeEntity[] = GivenActualData.createSamplePayees();
@@ -33,6 +35,7 @@ describe('ActualAiService', () => {
       inMemoryApiService,
       mockedLlmService,
       mockedPromptGenerator,
+      mockedManualPromptGenerator,
       NOT_GUESSED_TAG,
       GUESSED_TAG,
     );

@@ -18,6 +18,7 @@ import {
   groqModel,
   guessedTag,
   llmProvider,
+  manualPromptTemplate,
   notGuessedTag,
   ollamaBaseURL,
   ollamaModel,
@@ -66,11 +67,13 @@ const llmService = new LlmService(
 );
 
 const promptGenerator = new PromptGenerator(promptTemplate);
+const manualPromptGenerator = new PromptGenerator(manualPromptTemplate);
 
 const transactionService = new TransactionService(
   actualApiService,
   llmService,
   promptGenerator,
+  manualPromptGenerator,
   notGuessedTag,
   guessedTag,
 );

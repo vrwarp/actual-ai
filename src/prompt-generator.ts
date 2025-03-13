@@ -15,6 +15,7 @@ class PromptGenerator implements PromptGeneratorI {
     categoryGroups: APICategoryGroupEntity[],
     transaction: TransactionEntity,
     payees: APIPayeeEntity[],
+    manualTransactions: TransactionEntity[],
   ): string {
     let template;
     try {
@@ -36,6 +37,7 @@ class PromptGenerator implements PromptGeneratorI {
         date: transaction.date,
         cleared: transaction.cleared,
         reconciled: transaction.reconciled,
+        manualTransactions,
       });
     } catch (error) {
       console.error('Error generating prompt. Check syntax of your template.', error);
