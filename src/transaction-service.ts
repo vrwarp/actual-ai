@@ -1,11 +1,10 @@
 import {
+  APICategoryEntity,
+  APICategoryGroupEntity,
+} from '@actual-app/api/@types/loot-core/server/api-models';
+import {
   ActualApiServiceI, LlmServiceI, PromptGeneratorI, TransactionServiceI,
 } from './types';
-import {
-  APICategoryGroupEntity,
-  APIPayeeEntity,
-} from '@actual-app/api/@types/loot-core/server/api-models';
-import { TransactionEntity } from '@actual-app/api/@types/loot-core/types/models';
 
 const LEGACY_NOTES_NOT_GUESSED = 'actual-ai could not guess this category';
 const LEGACY_NOTES_GUESSED = 'actual-ai guessed this category';
@@ -79,12 +78,12 @@ class TransactionService implements TransactionServiceI {
       }
     }
   }
-  
+
   private async classifyTransaction(
     prompt: string,
-    categories: any[],
+    categories: (APICategoryEntity | APICategoryGroupEntity)[],
     debugPrefix: string,
-  ): Promise<any> {
+  ): Promise<APICategoryEntity | APICategoryGroupEntity | undefined> {
     const categoryIds = categories.map((category) => category.id);
     categoryIds.push('uncategorized');
     const guess = await this.llmService.ask(prompt, categoryIds);
@@ -105,7 +104,7 @@ class TransactionService implements TransactionServiceI {
     if (!guessCategory) {
       console.warn(`${debugPrefix} LLM could not classify the transaction. LLM guess: ${guess}`);
     }
-  return guessCategory;
+    return guessCategory;
   }
 
   async processTransactions(): Promise<void> {
@@ -125,10 +124,10 @@ class TransactionService implements TransactionServiceI {
         && transaction.imported_payee !== ''
         && (transaction.notes === null || (!transaction.notes?.includes(this.notGuessedTag)))
         && !transaction.is_parent
-        && !accountsToSkip.includes(transaction.account),
+        && !accountsToSkip.includes(transaction.account), this
     );
 
-    const missedManualTransactions = transactions.filter(
+    let missedManualTransactions = transactions.filter(
       (transaction) => transaction.category
         && (transaction.transfer_id === null || transaction.transfer_id === undefined)
         && transaction.starting_balance_flag !== true
@@ -136,21 +135,25 @@ class TransactionService implements TransactionServiceI {
         && transaction.imported_payee !== ''
         && transaction.notes?.includes(this.notGuessedTag)
         && !transaction.is_parent
-        && accountsToSkip.includes(transaction.account),
+        && !accountsToSkip.includes(transaction.account), this
     );
 
     for (let i = 0; i < uncategorizedTransactions.length; i++) {
       const transaction = uncategorizedTransactions[i];
       const debugPrefix = `${i + 1}/${uncategorizedTransactions.length}`;
       console.log(`${debugPrefix} Processing transaction ${transaction.imported_payee} / ${transaction.notes} / ${transaction.amount}`);
+      // eslint-disable-next-line max-len
       const prompt = this.promptGenerator.generate(categoryGroups, transaction, payees, missedManualTransactions);
       let guessCategory = await this.classifyTransaction(prompt, categories, debugPrefix);
-      if (!guessCategory) {
+      if (!guessCategory || true) {
         console.log(`${debugPrefix} Trying again with the manual prompt`);
+        // eslint-disable-next-line max-len
         const manualPrompt = this.manualPromptGenerator.generate(categoryGroups, transaction, payees, missedManualTransactions);
+        console.log(`${debugPrefix} Manual prompt: ${manualPrompt}`);
         guessCategory = await this.classifyTransaction(manualPrompt, categories, debugPrefix);
       }
       if (!guessCategory) {
+        // eslint-disable-next-line max-len
         await this.actualApiService.updateTransactionNotes(transaction.id, this.appendTag(transaction.notes ?? '', this.notGuessedTag));
         continue;
       }
@@ -161,9 +164,9 @@ class TransactionService implements TransactionServiceI {
         this.appendTag(transaction.notes ?? '', this.guessedTag),
         guessCategory.id,
       );
+      break;
     }
   }
-
 }
 
 export default TransactionService;

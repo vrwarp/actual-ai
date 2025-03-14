@@ -22,6 +22,8 @@ class ActualApiService implements ActualApiServiceI {
 
   private readonly e2ePassword: string;
 
+  private readonly dryRun: boolean;
+
   constructor(
     actualApiClient: typeof import('@actual-app/api'),
     fs: typeof import('fs'),
@@ -30,6 +32,7 @@ class ActualApiService implements ActualApiServiceI {
     password: string,
     budgetId: string,
     e2ePassword: string,
+    dryRun: boolean,
   ) {
     this.actualApiClient = actualApiClient;
     this.fs = fs;
@@ -38,9 +41,14 @@ class ActualApiService implements ActualApiServiceI {
     this.password = password;
     this.budgetId = budgetId;
     this.e2ePassword = e2ePassword;
+    this.dryRun = dryRun;
   }
 
   public async initializeApi() {
+    if (this.dryRun) {
+      console.log('ActualApiService is initialized in dry run mode. No write operations will be performed.');
+    }
+
     if (!this.fs.existsSync(this.dataDir)) {
       this.fs.mkdirSync(this.dataDir);
     }
@@ -109,6 +117,10 @@ class ActualApiService implements ActualApiServiceI {
   }
 
   public async updateTransactionNotes(id: string, notes: string): Promise<void> {
+    if (this.dryRun) {
+      console.log(`Dry run: updateTransactionNotes(id:${id}, notes: ${notes})`);
+      return;
+    }
     await this.actualApiClient.updateTransaction(id, { notes });
   }
 
@@ -117,10 +129,18 @@ class ActualApiService implements ActualApiServiceI {
     notes: string,
     categoryId: string,
   ): Promise<void> {
+    if (this.dryRun) {
+      console.log(`Dry run: updateTransactionNotesAndCategory(id:${id}, notes: ${notes}, categoryId: ${categoryId})`);
+      return;
+    }
     await this.actualApiClient.updateTransaction(id, { notes, category: categoryId });
   }
 
   public async runBankSync(): Promise<void> {
+    if (this.dryRun) {
+      console.log('Dry run: runBankSync');
+      return;
+    }
     await this.actualApiClient.runBankSync();
   }
 }

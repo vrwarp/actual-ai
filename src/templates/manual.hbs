@@ -4,6 +4,13 @@ I want to categorize the given bank transactions into the following categories:
 * {{name}} ({{../name}}) (ID: "{{id}}")
 {{/each}}
 {{/each}}
+
+Here are manually classified transactions to help you with ambiguous transactions:
+* PAYEE | AMOUNT | NOTES -> CATEGORY
+{{#each manualTransactions}}
+* {{imported_payee}} | {{amount}} | {{notes}} -> {{category}}
+{{/each}}
+
 Please categorize the following transaction:
 * Amount: {{amount}}
 * Type: {{type}}

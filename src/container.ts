@@ -9,6 +9,7 @@ import {
   anthropicModel,
   budgetId,
   dataDir,
+  dryRun,
   e2ePassword,
   googleApiKey,
   googleBaseURL,
@@ -60,6 +61,7 @@ const actualApiService = new ActualApiService(
   password,
   budgetId,
   e2ePassword,
+  dryRun,
 );
 
 const llmService = new LlmService(

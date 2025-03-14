@@ -27,9 +27,11 @@ export const ollamaBaseURL = process.env.OLLAMA_BASE_URL ?? 'http://localhost:11
 export const ollamaModel = process.env.OLLAMA_MODEL ?? 'llama3.1';
 export const dataDir = '/tmp/actual-ai/';
 export const promptTemplate = process.env.PROMPT_TEMPLATE ?? defaultPromptTemplate;
-export const manualPromptTemplate = process.env.MANUAL_PROMPT_TEMPLATE ?? defaultManualPromptTemplate;
+export const manualPromptTemplate = (process.env.MANUAL_PROMPT_TEMPLATE
+    ?? defaultManualPromptTemplate);
 export const notGuessedTag = process.env.NOT_GUESSED_TAG ?? '#actual-ai-miss';
 export const guessedTag = process.env.GUESSED_TAG ?? '#actual-ai';
 export const groqApiKey = process.env.GROQ_API_KEY ?? '';
 export const groqModel = process.env.GROQ_MODEL ?? 'llama-3.3-70b-versatile';
 export const groqBaseURL = process.env.GROQ_BASE_URL ?? 'https://api.groq.com/openai/v1';
+export const dryRun = process.env.DRY_RUN === 'true';
