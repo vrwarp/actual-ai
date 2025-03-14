@@ -145,7 +145,7 @@ class TransactionService implements TransactionServiceI {
       // eslint-disable-next-line max-len
       const prompt = this.promptGenerator.generate(categoryGroups, transaction, payees, missedManualTransactions);
       let guessCategory = await this.classifyTransaction(prompt, categories, debugPrefix);
-      if (!guessCategory || true) {
+      if (!guessCategory) {
         console.log(`${debugPrefix} Trying again with the manual prompt`);
         // eslint-disable-next-line max-len
         const manualPrompt = this.manualPromptGenerator.generate(categoryGroups, transaction, payees, missedManualTransactions);
