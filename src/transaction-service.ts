@@ -169,7 +169,7 @@ class TransactionService implements TransactionServiceI {
       const prompt = this.promptGenerator.generate(categoryGroups, transaction, payees, missedManualTransactions, overrideTransactions);
       console.log(`${debugPrefix} Prompt: ${prompt}`)
       let guessCategory = await this.classifyTransaction(prompt, categories, debugPrefix);
-      if (!guessCategory || true) {
+      if (!guessCategory) {
         console.log(`${debugPrefix} Trying again with the manual prompt`);
         const manualPrompt = this.manualPromptGenerator.generate(categoryGroups, transaction, payees, missedManualTransactions, overrideTransactions);
         console.log(`${debugPrefix} Manual prompt: ${manualPrompt}`);
