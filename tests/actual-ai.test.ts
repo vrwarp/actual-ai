@@ -21,6 +21,7 @@ describe('ActualAiService', () => {
   let syncAccountsBeforeClassify = false;
   const GUESSED_TAG = '#actual-ai';
   const NOT_GUESSED_TAG = '#actual-ai-miss';
+  const OVERRIDE_TAG = '#actual-ai-override'
 
   beforeEach(() => {
     inMemoryApiService = new InMemoryActualApiService();
@@ -38,6 +39,7 @@ describe('ActualAiService', () => {
       mockedManualPromptGenerator,
       NOT_GUESSED_TAG,
       GUESSED_TAG,
+      OVERRIDE_TAG,
     );
     inMemoryApiService.setCategoryGroups(categoryGroups);
     inMemoryApiService.setCategories(categories);

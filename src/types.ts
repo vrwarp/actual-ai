@@ -59,5 +59,6 @@ export interface PromptGeneratorI {
     transaction: TransactionEntity,
     payees: APIPayeeEntity[],
     manualTransactions: TransactionEntity[],
+    overrideTransactions: TransactionEntity[],
   ): string
 }

@@ -74,7 +74,7 @@ describe('LlmGenerator', () => {
 
     const payees = GivenActualData.createSamplePayees();
     const promptGenerator = new PromptGenerator(promptTemplate);
-    const prompt = promptGenerator.generate(categoryGroups, transaction, payees, []);
+    const prompt = promptGenerator.generate(categoryGroups, transaction, payees, [], []);
 
     expect(prompt).toEqual(expectedPrompt);
   });
@@ -86,7 +86,7 @@ describe('LlmGenerator', () => {
     const transaction = GivenActualData.createTransaction('1', 1000, 'Carrefour 2137');
     const promptGenerator = new PromptGenerator('{{#each categories}}');
     const t = () => {
-      promptGenerator.generate(categoryGroups, transaction, payees, []);
+      promptGenerator.generate(categoryGroups, transaction, payees, [], []);
     };
 
     expect(t).toThrow(PromptTemplateException);

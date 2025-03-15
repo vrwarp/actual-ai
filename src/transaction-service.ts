@@ -22,6 +22,8 @@ class TransactionService implements TransactionServiceI {
 
   private readonly guessedTag: string;
 
+  private readonly overrideTag: string;
+
   constructor(
     actualApiClient: ActualApiServiceI,
     llmService: LlmServiceI,
@@ -29,6 +31,7 @@ class TransactionService implements TransactionServiceI {
     manualPromptGenerator: PromptGeneratorI,
     notGuessedTag: string,
     guessedTag: string,
+    overrideTag: string,
   ) {
     this.actualApiService = actualApiClient;
     this.llmService = llmService;
@@ -36,6 +39,7 @@ class TransactionService implements TransactionServiceI {
     this.manualPromptGenerator = manualPromptGenerator;
     this.notGuessedTag = notGuessedTag;
     this.guessedTag = guessedTag;
+    this.overrideTag = overrideTag;
   }
 
   appendTag(notes: string, tag: string): string {
@@ -46,6 +50,7 @@ class TransactionService implements TransactionServiceI {
   clearPreviousTags(notes: string): string {
     return notes.replace(new RegExp(` ${this.guessedTag}`, 'g'), '')
       .replace(new RegExp(` ${this.notGuessedTag}`, 'g'), '')
+      .replace(new RegExp(` ${this.overrideTag}`, 'g'), '')
       .replace(new RegExp(` \\| ${LEGACY_NOTES_NOT_GUESSED}`, 'g'), '')
       .replace(new RegExp(` \\| ${LEGACY_NOTES_GUESSED}`, 'g'), '')
       .trim();
@@ -127,6 +132,9 @@ class TransactionService implements TransactionServiceI {
         && !accountsToSkip.includes(transaction.account), this
     );
 
+    // Missed Manual Transactions are transactions that have been categorized despite
+    // having the notGuessTag in the notes. These can be used as additional context
+    // for the AI to make a better guess when existing context is insufficient.
     let missedManualTransactions = transactions.filter(
       (transaction) => transaction.category
         && (transaction.transfer_id === null || transaction.transfer_id === undefined)
@@ -138,22 +146,36 @@ class TransactionService implements TransactionServiceI {
         && !accountsToSkip.includes(transaction.account), this
     );
 
+    // Override Transactions are transactions that have been categorized with the AI
+    // which is annotated by the guessedTag in teh notes. However, the user has added
+    // the additional overrideTag to the notes to indicate that the AI was incorrect
+    // and manually recategorized. These transactions are added to the initial
+    // categorization context to help the AI learn from its mistakes.
+    let overrideTransactions = transactions.filter(
+      (transaction) => transaction.category
+        && (transaction.transfer_id === null || transaction.transfer_id === undefined)
+        && transaction.starting_balance_flag !== true
+        && transaction.imported_payee !== null
+        && transaction.imported_payee !== ''
+        && transaction.notes?.includes(this.overrideTag)
+        && !transaction.is_parent
+        && !accountsToSkip.includes(transaction.account), this
+    );
+
     for (let i = 0; i < uncategorizedTransactions.length; i++) {
       const transaction = uncategorizedTransactions[i];
       const debugPrefix = `${i + 1}/${uncategorizedTransactions.length}`;
       console.log(`${debugPrefix} Processing transaction ${transaction.imported_payee} / ${transaction.notes} / ${transaction.amount}`);
-      // eslint-disable-next-line max-len
-      const prompt = this.promptGenerator.generate(categoryGroups, transaction, payees, missedManualTransactions);
+      const prompt = this.promptGenerator.generate(categoryGroups, transaction, payees, missedManualTransactions, overrideTransactions);
+      console.log(`${debugPrefix} Prompt: ${prompt}`)
       let guessCategory = await this.classifyTransaction(prompt, categories, debugPrefix);
-      if (!guessCategory) {
+      if (!guessCategory || true) {
         console.log(`${debugPrefix} Trying again with the manual prompt`);
-        // eslint-disable-next-line max-len
-        const manualPrompt = this.manualPromptGenerator.generate(categoryGroups, transaction, payees, missedManualTransactions);
+        const manualPrompt = this.manualPromptGenerator.generate(categoryGroups, transaction, payees, missedManualTransactions, overrideTransactions);
         console.log(`${debugPrefix} Manual prompt: ${manualPrompt}`);
         guessCategory = await this.classifyTransaction(manualPrompt, categories, debugPrefix);
       }
       if (!guessCategory) {
-        // eslint-disable-next-line max-len
         await this.actualApiService.updateTransactionNotes(transaction.id, this.appendTag(transaction.notes ?? '', this.notGuessedTag));
         continue;
       }

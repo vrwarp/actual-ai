@@ -23,6 +23,7 @@ import {
   notGuessedTag,
   ollamaBaseURL,
   ollamaModel,
+  overrideTag,
   openaiApiKey,
   openaiBaseURL,
   openaiModel,
@@ -78,6 +79,7 @@ const transactionService = new TransactionService(
   manualPromptGenerator,
   notGuessedTag,
   guessedTag,
+  overrideTag,
 );
 
 const actualAi = new ActualAiService(

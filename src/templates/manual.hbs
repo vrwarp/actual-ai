@@ -6,20 +6,19 @@ I want to categorize the given bank transactions into the following categories:
 {{/each}}
 
 Here are manually classified transactions to help you with ambiguous transactions:
-* PAYEE | AMOUNT | NOTES -> CATEGORY
+PAYEE, AMOUNT, DESCRIPTION, CATEGORY (ID)
+{{#each overrideTransactions}}
+{{payee}}, {{amount}}, {{description}}, {{category}} ({{categoryId}})
+{{/each}}
 {{#each manualTransactions}}
-* {{imported_payee}} | {{amount}} | {{notes}} -> {{category}}
+{{payee}}, {{amount}}, {{description}}, {{category}} ({{categoryId}})
 {{/each}}
 
 Please categorize the following transaction:
-* Amount: {{amount}}
-* Type: {{type}}
-{{#if description}}
-* Description: {{description}}
+* Amount: {{transaction.amount}}
+* Type: {{transaction.type}}
+{{#if transaction.description}}
+* Description: {{transaction.description}}
 {{/if}}
-{{#if payee}}
-* Payee: {{payee}}
-{{^}}
-* Payee: {{importedPayee}}
-{{/if}}
+* Payee: {{transaction.payee}}
 ANSWER BY A CATEGORY ID - DO NOT CREATE ENTIRE SENTENCE - DO NOT WRITE CATEGORY NAME, JUST AN ID. Do not guess, if you don't know the answer, return "uncategorized".
