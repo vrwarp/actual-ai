@@ -184,7 +184,6 @@ class TransactionService implements TransactionServiceI {
         this.appendTag(transaction.notes ?? '', this.guessedTag),
         guessCategory.id,
       );
-      break;
     }
   }
 }
