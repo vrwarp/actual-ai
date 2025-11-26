@@ -19,9 +19,10 @@ describe('LlmGenerator', () => {
       + '\n* Groceries (Usual Expenses) (ID: "ff7be77b-40f4-4e9d-aea4-be6b8c431281")'
       + '\n* Travel (Usual Expenses) (ID: "541836f1-e756-4473-a5d0-6c1d3f06c7fa")'
       + '\n* Salary (Income) (ID: "123836f1-e756-4473-a5d0-6c1d3f06c7fa")'
-      + '\nPlease categorize the following transaction:'
+      + '\n\nPay attention to these examples which are corrections to the automatic categorization:'
+      + '\n\nPlease categorize the following transaction:'
       + '\n* Amount: 34169'
-      + '\n* Type: Outcome'
+      + '\n* Type: Withdrawal'
       + '\n* Description: AIRBNB * XXXX1234567 822-307-2000'
       + '\n* Payee: Airbnb * XXXX1234567'
       + '\nANSWER BY A CATEGORY ID - DO NOT CREATE ENTIRE SENTENCE - DO NOT WRITE CATEGORY NAME, JUST AN ID. Do not guess, if you don\'t know the answer, return "uncategorized".',
@@ -38,9 +39,10 @@ describe('LlmGenerator', () => {
       + '\n* Groceries (Usual Expenses) (ID: "ff7be77b-40f4-4e9d-aea4-be6b8c431281")'
       + '\n* Travel (Usual Expenses) (ID: "541836f1-e756-4473-a5d0-6c1d3f06c7fa")'
       + '\n* Salary (Income) (ID: "123836f1-e756-4473-a5d0-6c1d3f06c7fa")'
-      + '\nPlease categorize the following transaction:'
+      + '\n\nPay attention to these examples which are corrections to the automatic categorization:'
+      + '\n\nPlease categorize the following transaction:'
       + '\n* Amount: 1000'
-      + '\n* Type: Outcome'
+      + '\n* Type: Withdrawal'
       + '\n* Payee: Carrefour'
       + '\nANSWER BY A CATEGORY ID - DO NOT CREATE ENTIRE SENTENCE - DO NOT WRITE CATEGORY NAME, JUST AN ID. Do not guess, if you don\'t know the answer, return "uncategorized".',
       promptTemplate,
@@ -56,9 +58,10 @@ describe('LlmGenerator', () => {
       + '\n* Groceries (Usual Expenses) (ID: "ff7be77b-40f4-4e9d-aea4-be6b8c431281")'
       + '\n* Travel (Usual Expenses) (ID: "541836f1-e756-4473-a5d0-6c1d3f06c7fa")'
       + '\n* Salary (Income) (ID: "123836f1-e756-4473-a5d0-6c1d3f06c7fa")'
-      + '\nPlease categorize the following transaction:'
+      + '\n\nPay attention to these examples which are corrections to the automatic categorization:'
+      + '\n\nPlease categorize the following transaction:'
       + '\n* Amount: 2137420'
-      + '\n* Type: Income'
+      + '\n* Type: Deposit'
       + '\n* Description: DESCRIPTION'
       + '\n* Payee: Google'
       + '\nANSWER BY A CATEGORY ID - DO NOT CREATE ENTIRE SENTENCE - DO NOT WRITE CATEGORY NAME, JUST AN ID. Do not guess, if you don\'t know the answer, return "uncategorized".',
