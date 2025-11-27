@@ -6,7 +6,7 @@ import GivenActualData from './test-doubles/given/given-actual-data';
 import PromptTemplateException from '../src/exceptions/prompt-template-exception';
 import handlebars from '../src/handlebars-helpers';
 import * as config from '../src/config';
-import { APICategoryEntityWithDescription } from '../src/types';
+import { APICategoryEntity } from '../src/types';
 
 // Mock the isToolEnabled function
 jest.spyOn(config, 'isToolEnabled').mockReturnValue(false);
@@ -60,7 +60,7 @@ describe('PromptGenerator', () => {
 
       // Type-safe mapping of categories
       const categories = (group.categories ?? []).map((category) => {
-        const safeCategory: APICategoryEntityWithDescription = {
+        const safeCategory: APICategoryEntity = {
           id: category.id,
           name: category.name,
           group_id: category.group_id,

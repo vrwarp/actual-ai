@@ -9,10 +9,8 @@ import {
   TransactionEntity, RuleEntity, CategoryEntity, CategoryGroupEntity,
 } from '@actual-app/api/@types/loot-core/src/types/models';
 
-export type APICategoryEntity = ImportedAPICategoryEntity | CategoryEntity;
+export type APICategoryEntity = (ImportedAPICategoryEntity | CategoryEntity) & { description?: string };
 export type APICategoryGroupEntity = ImportedAPICategoryGroupEntity | CategoryGroupEntity;
-
-export type APICategoryEntityWithDescription = APICategoryEntity & { description?: string };
 
 export interface LlmModelI {
   ask(prompt: string, possibleAnswers: string[]): Promise<string>;
