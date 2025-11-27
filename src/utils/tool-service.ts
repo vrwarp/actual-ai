@@ -15,16 +15,33 @@ interface OrganicResults {
   organic_results?: SearchResult[];
 }
 
+/**
+ * Service that provides tools to the LLM (Large Language Model).
+ *
+ * Currently, it supports web search capabilities using either ValueSerp (commercial)
+ * or a free alternative (FreeWebSearchService). These tools are exposed as callable
+ * functions for the AI to retrieve external information during transaction classification.
+ */
 export default class ToolService implements ToolServiceI {
   private readonly valueSerpApiKey: string;
 
   private readonly freeWebSearchService: FreeWebSearchService;
 
+  /**
+   * Constructs the ToolService.
+   *
+   * @param valueSerpApiKey - API key for ValueSerp (if used).
+   */
   constructor(valueSerpApiKey: string) {
     this.valueSerpApiKey = valueSerpApiKey;
     this.freeWebSearchService = new FreeWebSearchService();
   }
 
+  /**
+   * Retrieves the set of tools enabled for the current environment.
+   *
+   * @returns A dictionary of tool names mapped to their implementations.
+   */
   public getTools() {
     const tools: Record<string, Tool> = {};
 
@@ -71,6 +88,12 @@ export default class ToolService implements ToolServiceI {
     return tools;
   }
 
+  /**
+   * Performs a search using the ValueSerp API.
+   *
+   * @param query - The search query.
+   * @returns A promise resolving to raw organic search results.
+   */
   private async performSearch(query: string): Promise<OrganicResults> {
     const params = new URLSearchParams({
       api_key: this.valueSerpApiKey,
@@ -117,6 +140,13 @@ export default class ToolService implements ToolServiceI {
     });
   }
 
+  /**
+   * Formats raw search results into a concise summary string.
+   * Also performs simple deduplication based on title similarity.
+   *
+   * @param results - Raw organic results from ValueSerp.
+   * @returns A formatted string summary.
+   */
   private formatSearchResults(results: OrganicResults): string {
     if (!Array.isArray(results?.organic_results)) {
       return 'No relevant business information found.';
@@ -147,6 +177,14 @@ export default class ToolService implements ToolServiceI {
     return `SEARCH RESULTS:\n${formattedResults}`;
   }
 
+  /**
+   * Calculates a simple Jaccard-like similarity index for two strings.
+   * Used for deduplicating search results.
+   *
+   * @param str1 - First string.
+   * @param str2 - Second string.
+   * @returns Similarity score between 0 and 1.
+   */
   private getSimilarity(str1: string, str2: string): number {
     const words1 = str1.toLowerCase().split(/\W+/).filter((w) => w.length > 3);
     const words2 = str2.toLowerCase().split(/\W+/).filter((w) => w.length > 3);

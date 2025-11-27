@@ -6,6 +6,10 @@ import { createOllama } from 'ollama-ai-provider';
 import { createGroq } from '@ai-sdk/groq';
 import { LlmModelFactoryI } from './types';
 
+/**
+ * Factory class responsible for creating Language Model instances based on the configuration.
+ * Supports various providers like OpenAI, Anthropic, Google, Ollama, and Groq.
+ */
 class LlmModelFactory implements LlmModelFactoryI {
   private readonly llmProvider: string;
 
@@ -37,6 +41,25 @@ class LlmModelFactory implements LlmModelFactoryI {
 
   private readonly groqBaseURL: string;
 
+  /**
+   * Constructs the LlmModelFactory with configuration for all supported providers.
+   *
+   * @param llmProvider - The identifier of the selected LLM provider (e.g., 'openai', 'anthropic').
+   * @param openaiApiKey - API key for OpenAI.
+   * @param openaiModel - Model identifier for OpenAI.
+   * @param openaiBaseURL - Base URL for OpenAI API.
+   * @param anthropicBaseURL - Base URL for Anthropic API.
+   * @param anthropicApiKey - API key for Anthropic.
+   * @param anthropicModel - Model identifier for Anthropic.
+   * @param googleModel - Model identifier for Google Generative AI.
+   * @param googleBaseURL - Base URL for Google Generative AI.
+   * @param googleApiKey - API key for Google Generative AI.
+   * @param ollamaModel - Model identifier for Ollama.
+   * @param ollamaBaseURL - Base URL for Ollama.
+   * @param groqApiKey - API key for Groq.
+   * @param groqModel - Model identifier for Groq.
+   * @param groqBaseURL - Base URL for Groq.
+   */
   constructor(
     llmProvider: string,
     openaiApiKey: string,
@@ -71,6 +94,12 @@ class LlmModelFactory implements LlmModelFactoryI {
     this.groqBaseURL = groqBaseURL;
   }
 
+  /**
+   * Creates and returns a configured LanguageModel instance based on the selected provider.
+   *
+   * @returns A configured LanguageModel instance ready for use.
+   * @throws Error if the configured provider is unknown.
+   */
   public create(): LanguageModel {
     console.debug(`Creating model for provider: ${this.llmProvider}`);
     switch (this.llmProvider) {
@@ -113,14 +142,29 @@ class LlmModelFactory implements LlmModelFactoryI {
     }
   }
 
+  /**
+   * Checks if the current configuration implies a fallback mode (e.g., local model).
+   *
+   * @returns True if running in fallback mode (Ollama), false otherwise.
+   */
   public isFallbackMode(): boolean {
     return this.llmProvider === 'ollama';
   }
 
+  /**
+   * Retrieves the identifier of the currently configured provider.
+   *
+   * @returns The provider string (e.g., 'openai', 'ollama').
+   */
   public getProvider(): string {
     return this.llmProvider;
   }
 
+  /**
+   * Retrieves the model provider name.
+   *
+   * @returns The provider string.
+   */
   public getModelProvider(): string {
     return this.llmProvider;
   }

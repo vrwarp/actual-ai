@@ -4,11 +4,20 @@ import type {
 } from '../../types';
 import TagService from '../tag-service';
 
+/**
+ * Strategy to handle LLM responses that match an existing classification rule.
+ */
 class RuleMatchStrategy implements ProcessingStrategyI {
   private readonly actualApiService: ActualApiServiceI;
 
   private readonly tagService: TagService;
 
+  /**
+   * Constructs the RuleMatchStrategy.
+   *
+   * @param actualApiService - Service to interact with the Actual Budget API.
+   * @param tagService - Service to manage transaction note tags.
+   */
   constructor(
     actualApiService: ActualApiServiceI,
     tagService: TagService,
@@ -17,6 +26,12 @@ class RuleMatchStrategy implements ProcessingStrategyI {
     this.tagService = tagService;
   }
 
+  /**
+   * Checks if this strategy can handle the given response.
+   *
+   * @param response - The LLM response.
+   * @returns True if the response type is 'rule', and both categoryId and ruleName are present.
+   */
   isSatisfiedBy(response: UnifiedResponse): boolean {
     if (response.categoryId === undefined) {
       return false;
@@ -28,6 +43,16 @@ class RuleMatchStrategy implements ProcessingStrategyI {
     return response.type === 'rule';
   }
 
+  /**
+   * Processes the transaction by applying the matched rule.
+   *
+   * It updates the transaction's category and notes, appending the rule name to the notes
+   * for transparency.
+   *
+   * @param transaction - The transaction to update.
+   * @param response - The LLM response containing the rule match details.
+   * @returns A promise that resolves when the update is complete.
+   */
   async process(
     transaction: TransactionEntity,
     response: UnifiedResponse,

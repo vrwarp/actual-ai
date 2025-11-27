@@ -5,6 +5,10 @@ import suppressConsoleLogsAsync from './utils';
 import { formatError } from './utils/error-utils';
 import { isFeatureEnabled } from './config';
 
+/**
+ * Service responsible for orchestrating the AI classification process.
+ * It coordinates initialization, bank syncing, note migration, and transaction processing.
+ */
 class ActualAiService implements ActualAiServiceI {
   private readonly transactionService: TransactionServiceI;
 
@@ -12,6 +16,13 @@ class ActualAiService implements ActualAiServiceI {
 
   private readonly notesMigrator: NotesMigratorI;
 
+  /**
+   * Initializes the Actual AI service with required dependencies.
+   *
+   * @param transactionService - The service responsible for processing transactions.
+   * @param actualApiService - The service for interacting with the Actual Budget API.
+   * @param notesMigrator - The service for migrating notes to tags.
+   */
   constructor(
     transactionService: TransactionServiceI,
     actualApiService: ActualApiServiceI,
@@ -22,6 +33,14 @@ class ActualAiService implements ActualAiServiceI {
     this.notesMigrator = notesMigrator;
   }
 
+  /**
+   * Main entry point for the classification process.
+   *
+   * This method initializes the API, optionally syncs bank accounts, migrates notes to tags,
+   * and processes transactions. It handles errors and ensures proper API shutdown.
+   *
+   * @returns A promise that resolves when the classification process is complete.
+   */
   public async classify() {
     console.log('Starting classification process');
     let isBudgetOpen = false;
@@ -73,6 +92,13 @@ class ActualAiService implements ActualAiServiceI {
     }
   }
 
+  /**
+   * Syncs bank accounts using the Actual API service.
+   *
+   * It suppresses console logs during the sync process and logs success or failure.
+   *
+   * @returns A promise that resolves when the sync is complete.
+   */
   async syncAccounts(): Promise<void> {
     console.log('Syncing bank accounts');
     try {
@@ -86,6 +112,12 @@ class ActualAiService implements ActualAiServiceI {
     }
   }
 
+  /**
+   * Checks if an error is related to rate limiting.
+   *
+   * @param error - The error object to check.
+   * @returns True if the error indicates a rate limit was exceeded, false otherwise.
+   */
   private isRateLimitError(error: unknown): boolean {
     if (!error) return false;
 

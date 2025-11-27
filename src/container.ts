@@ -49,6 +49,13 @@ import TransactionProcessor from './transaction/transaction-processor';
 import TransactionFilterer from './transaction/transaction-filterer';
 import RateLimiter from './utils/rate-limiter';
 
+/**
+ * Dependency injection container configuration.
+ *
+ * This file assembles the entire application by instantiating services with their dependencies
+ * based on configuration settings. It serves as the composition root of the application.
+ */
+
 // Create tool service if API key is available and tools are enabled
 const toolService = valueSerpApiKey && getEnabledTools().length > 0
   ? new ToolService(valueSerpApiKey)

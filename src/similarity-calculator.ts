@@ -1,4 +1,18 @@
+/**
+ * Utility class for calculating string similarity scores.
+ * Used for comparing category names or other text strings to find matches.
+ */
 class SimilarityCalculator {
+  /**
+   * Calculates a similarity score between two strings.
+   *
+   * The score is a weighted combination of Jaccard similarity (word overlap)
+   * and Jaro-Winkler distance (character-level similarity).
+   *
+   * @param name1 - The first string to compare.
+   * @param name2 - The second string to compare.
+   * @returns A number between 0 and 1, where 1 indicates an exact match.
+   */
   public calculateNameSimilarity(name1: string, name2: string): number {
     // Normalize the strings for comparison
     const a = name1.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();

@@ -4,6 +4,13 @@ import { APICategoryGroupEntity } from '../types';
 import CategorySuggestionOptimizer from '../category-suggestion-optimizer';
 import TagService from './tag-service';
 
+/**
+ * Service responsible for creating new categories suggested by the AI.
+ *
+ * This class handles the optimization of suggested categories (merging duplicates),
+ * creation of new category groups and categories via the API, and updating transactions
+ * to assign them to these newly created categories.
+ */
 class CategorySuggester {
   private readonly actualApiService: ActualApiServiceI;
 
@@ -11,6 +18,13 @@ class CategorySuggester {
 
   private readonly tagService: TagService;
 
+  /**
+   * Constructs the CategorySuggester.
+   *
+   * @param actualApiService - Service to interact with the Actual Budget API.
+   * @param categorySuggestionOptimizer - Service to optimize and deduplicate category suggestions.
+   * @param tagService - Service to manage tags on transaction notes.
+   */
   constructor(
     actualApiService: ActualApiServiceI,
     categorySuggestionOptimizer: CategorySuggestionOptimizer,
@@ -21,6 +35,20 @@ class CategorySuggester {
     this.tagService = tagService;
   }
 
+  /**
+   * Processes suggested categories, creates them in the system, and assigns transactions.
+   *
+   * 1. Optimizes the raw suggestions to merge similar ones.
+   * 2. Iterates through optimized suggestions.
+   * 3. Creates new category groups if necessary, or finds existing ones.
+   * 4. Creates the new category within the group.
+   * 5. Updates all associated transactions to belong to the new category and tags them.
+   *
+   * @param suggestedCategories - A map of suggested categories and their associated transactions.
+   * @param uncategorizedTransactions - (Unused param in current logic) List of uncategorized transactions.
+   * @param categoryGroups - List of existing category groups to check against.
+   * @returns A promise that resolves when all creation and assignment operations are complete.
+   */
   public async suggest(
     suggestedCategories: Map<string, {
             name: string;

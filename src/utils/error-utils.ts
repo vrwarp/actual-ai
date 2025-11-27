@@ -8,9 +8,10 @@ interface RateLimitError extends Error {
 }
 
 /**
- * Checks if an error is a rate limit error
- * @param error Any error object or value
- * @returns boolean indicating if this is a rate limit error
+ * Checks if an error is a rate limit error (HTTP 429 or similar).
+ *
+ * @param error - The error object to check.
+ * @returns True if the error indicates a rate limit was exceeded, false otherwise.
  */
 export const isRateLimitError = (error: unknown): boolean => {
   if (!error) return false;
@@ -24,9 +25,12 @@ export const isRateLimitError = (error: unknown): boolean => {
 };
 
 /**
- * Attempts to extract retry-after information from a rate limit error
- * @param error Rate limit error
- * @returns Time to wait in milliseconds or undefined if not found
+ * Attempts to extract the recommended wait time (retry-after) from a rate limit error.
+ *
+ * It checks error messages, response headers, and response bodies for retry information.
+ *
+ * @param error - The error object to inspect.
+ * @returns The time to wait in milliseconds, or undefined if no information is found.
  */
 export const extractRetryAfterMs = (error: unknown): number | undefined => {
   if (!isRateLimitError(error)) return undefined;
@@ -69,9 +73,10 @@ export const extractRetryAfterMs = (error: unknown): number | undefined => {
 };
 
 /**
- * Formats an error into a string
- * @param error Any error object or value
- * @returns string representation of the error
+ * Formats an error object into a readable string.
+ *
+ * @param error - The error to format.
+ * @returns A string representation of the error.
  */
 export const formatError = (error: unknown): string => {
   if (error instanceof Error) return error.message;

@@ -18,6 +18,13 @@ interface TokenBucket {
   resetTimestamp: number;
 }
 
+/**
+ * A robust rate limiter for managing API request frequency and handling rate limit errors.
+ *
+ * It uses a combination of request counting (per minute) and token bucket tracking
+ * (for more granular control when headers are available) to throttle requests.
+ * It also implements exponential backoff with jitter for retries.
+ */
 class RateLimiter {
   private requestCounts = new Map<string, number>();
 
@@ -29,18 +36,41 @@ class RateLimiter {
 
   private debugMode = false;
 
+  /**
+   * Constructs the RateLimiter.
+   *
+   * @param debug - If true, enables detailed logging of rate limit events.
+   */
   constructor(debug = false) {
     this.debugMode = debug;
   }
 
+  /**
+   * Configures the request limit for a specific provider.
+   *
+   * @param provider - The name of the provider.
+   * @param limit - The maximum number of requests allowed per minute.
+   */
   public setProviderLimit(provider: string, limit: number): void {
     this.maxRequestsPerMinute.set(provider, limit);
   }
 
+  /**
+   * Enables debug logging for the rate limiter.
+   */
   public enableDebug(): void {
     this.debugMode = true;
   }
 
+  /**
+   * Executes an asynchronous operation with rate limiting and retry logic.
+   *
+   * @param provider - The name of the provider associated with the operation.
+   * @param operation - The asynchronous function to execute.
+   * @param retryParams - Configuration for retry behavior (max retries, delay, etc.).
+   * @returns A promise that resolves to the result of the operation.
+   * @throws Error if max retries are exceeded.
+   */
   public async executeWithRateLimiting<T>(
     provider: string,
     operation: () => Promise<T>,
@@ -100,6 +130,13 @@ class RateLimiter {
     throw new Error(`Rate limit retries exceeded (${retryParams.maxRetries}). Last error: ${lastError?.message}`);
   }
 
+  /**
+   * Gathers debug information about the current rate limit state and error.
+   *
+   * @param provider - The provider name.
+   * @param error - The error that occurred.
+   * @returns An object containing debug details.
+   */
   private getRateLimitDebugInfo(provider: string, error: unknown): object {
     const bucket = this.tokenBuckets.get(provider);
     const errorInfo: { message: string; statusCode?: number; headers?: Record<string, string> } = {
@@ -123,6 +160,14 @@ class RateLimiter {
     };
   }
 
+  /**
+   * Updates the internal token bucket state based on rate limit error details.
+   *
+   * Parses error messages (specifically for Groq) to find token usage and reset times.
+   *
+   * @param provider - The provider name.
+   * @param error - The error object.
+   */
   private updateTokenBucketFromError(provider: string, error: unknown): void {
     if (!(error instanceof Error)) return;
 
@@ -163,6 +208,12 @@ class RateLimiter {
     }
   }
 
+  /**
+   * Checks if an error is indicative of rate limiting.
+   *
+   * @param error - The error to check.
+   * @returns True if it's a rate limit error.
+   */
   private isRateLimitError(error: unknown): boolean {
     if (error instanceof Error) {
       // Check for common rate limit status codes and messages
@@ -179,6 +230,14 @@ class RateLimiter {
     return false;
   }
 
+  /**
+   * Extracts the retry-after duration from an error.
+   *
+   * Checks both headers and specific error message formats (e.g., Groq).
+   *
+   * @param error - The error to inspect.
+   * @returns The duration in milliseconds to wait, or undefined.
+   */
   private extractRetryAfterMs(error: unknown): number | undefined {
     if (error instanceof Error) {
       try {
@@ -208,6 +267,17 @@ class RateLimiter {
     return undefined;
   }
 
+  /**
+   * Calculates the backoff delay for retries.
+   *
+   * Uses exponential backoff (base * 2^attempt) and adds jitter if enabled.
+   *
+   * @param attempt - The current retry attempt number.
+   * @param baseDelay - The base delay in milliseconds.
+   * @param maxDelay - The maximum allowed delay.
+   * @param jitter - Whether to add random jitter.
+   * @returns The calculated delay in milliseconds.
+   */
   private calculateBackoff(
     attempt: number,
     baseDelay: number,
@@ -225,6 +295,12 @@ class RateLimiter {
     return Math.floor(delay);
   }
 
+  /**
+   * Records a request for a provider to update local usage stats.
+   * Resets counts if the one-minute window has passed.
+   *
+   * @param provider - The provider name.
+   */
   private trackRequest(provider: string): void {
     const now = Date.now();
     const count = this.requestCounts.get(provider) ?? 0;
@@ -240,6 +316,13 @@ class RateLimiter {
     this.lastRequestTime.set(provider, now);
   }
 
+  /**
+   * Pauses execution if rate limits are approached or exceeded.
+   *
+   * Checks both the local request count and the token bucket state.
+   *
+   * @param provider - The provider to check.
+   */
   private async waitIfNeeded(provider: string): Promise<void> {
     const limit = this.maxRequestsPerMinute.get(provider) ?? 0;
     const count = this.requestCounts.get(provider) ?? 0;
@@ -271,6 +354,11 @@ class RateLimiter {
     }
   }
 
+  /**
+   * Helper method to pause execution for a specified duration.
+   *
+   * @param ms - Duration in milliseconds.
+   */
   protected sleep(ms: number): Promise<void> {
     return new Promise<void>((resolve) => {
       setTimeout(resolve, ms);
