@@ -1,9 +1,19 @@
+/**
+ * Interface defining the rate limits for an LLM provider.
+ */
 export interface ProviderLimits {
+  /** The maximum number of tokens allowed per minute. */
   tokensPerMinute: number;
+  /** The maximum number of requests allowed per minute. */
   requestsPerMinute: number;
 }
 
-// Default conservative limits - these should be updated based on user's plan
+/**
+ * A dictionary of default rate limits for supported LLM providers.
+ *
+ * These values serve as conservative defaults to prevent hitting API rate limits
+ * immediately. Users may need to adjust these based on their specific plan tiers.
+ */
 export const PROVIDER_LIMITS: Record<string, ProviderLimits> = {
   openai: {
     tokensPerMinute: 60000,

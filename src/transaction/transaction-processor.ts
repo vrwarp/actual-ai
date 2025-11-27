@@ -10,6 +10,12 @@ import {
 } from '../types';
 import TagService from './tag-service';
 
+/**
+ * Service to process a single transaction for classification.
+ *
+ * This class coordinates the generation of the prompt, the query to the LLM,
+ * and the delegation of the response to the appropriate processing strategy.
+ */
 class TransactionProcessor {
   private readonly actualApiService: ActualApiServiceI;
 
@@ -21,6 +27,15 @@ class TransactionProcessor {
 
   private readonly processingStrategies: ProcessingStrategyI[];
 
+  /**
+   * Constructs the TransactionProcessor.
+   *
+   * @param actualApiClient - Service to interact with the Actual Budget API.
+   * @param llmService - Service to interact with the LLM.
+   * @param promptGenerator - Service to generate the prompt for the LLM.
+   * @param tagService - Service to manage transaction note tags.
+   * @param processingStrategies - List of strategies to handle different LLM response types.
+   */
   constructor(
     actualApiClient: ActualApiServiceI,
     llmService: LlmServiceI,
@@ -35,6 +50,24 @@ class TransactionProcessor {
     this.processingStrategies = processingStrategies;
   }
 
+  /**
+   * Processes a single transaction.
+   *
+   * 1. Generates a prompt based on the transaction and context (rules, examples).
+   * 2. Sends the prompt to the LLM.
+   * 3. Selects a matching strategy based on the LLM's response.
+   * 4. Executes the strategy to apply the changes (e.g., updating category, suggesting new category).
+   * 5. Handles errors by tagging the transaction as "not guessed".
+   *
+   * @param transaction - The transaction to process.
+   * @param categoryGroups - Available category groups.
+   * @param payees - Available payees.
+   * @param rules - Relevant categorization rules.
+   * @param examples - Manual override examples.
+   * @param categories - All available categories.
+   * @param suggestedCategories - Map to collect new category suggestions.
+   * @returns A promise that resolves when processing is complete.
+   */
   public async process(
     transaction: TransactionEntity,
     categoryGroups: APICategoryGroupEntity[],

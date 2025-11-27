@@ -8,11 +8,24 @@ import {
 } from '../types';
 import TransactionProcessor from './transaction-processor';
 
+/**
+ * Service to process a list of transactions in batches.
+ *
+ * This class handles the iteration over a large list of transactions, breaking them down
+ * into smaller batches to manage load and rate limits. It delegates the processing of individual
+ * transactions to the `TransactionProcessor`.
+ */
 class BatchTransactionProcessor {
   private readonly transactionProcessor: TransactionProcessor;
 
   private readonly batchSize: number;
 
+  /**
+   * Constructs the BatchTransactionProcessor.
+   *
+   * @param transactionProcessor - The service used to process individual transactions.
+   * @param batchSize - The number of transactions to process in a single batch.
+   */
   constructor(
     transactionProcessor: TransactionProcessor,
     batchSize: number,
@@ -21,6 +34,21 @@ class BatchTransactionProcessor {
     this.batchSize = batchSize;
   }
 
+  /**
+   * Processes a list of uncategorized transactions in batches.
+   *
+   * It iterates through the transactions, processing them sequentially within each batch.
+   * It also introduces a delay between batches to respect rate limits.
+   *
+   * @param uncategorizedTransactions - The list of transactions to process.
+   * @param categoryGroups - Available category groups.
+   * @param payees - Available payees.
+   * @param rules - Relevant categorization rules.
+   * @param examples - Manual override examples for few-shot learning.
+   * @param categories - All available categories.
+   * @param suggestedCategories - A map to collect suggested categories during processing.
+   * @returns A promise that resolves when all batches have been processed.
+   */
   public async process(
     uncategorizedTransactions: TransactionEntity[],
     categoryGroups: APICategoryGroupEntity[],

@@ -6,6 +6,10 @@ import RateLimiter from './utils/rate-limiter';
 import { PROVIDER_LIMITS } from './utils/provider-limits';
 import { parseLlmResponse } from './utils/json-utils';
 
+/**
+ * Service responsible for interacting with the Large Language Model (LLM).
+ * It handles rate limiting, model invocation, and response parsing.
+ */
 export default class LlmService implements LlmServiceI {
   private readonly model: LanguageModel;
 
@@ -17,6 +21,14 @@ export default class LlmService implements LlmServiceI {
 
   private readonly isFallbackMode;
 
+  /**
+   * Constructs the LlmService.
+   *
+   * @param llmModelFactory - Factory to create the language model instance.
+   * @param rateLimiter - Rate limiter to control request frequency.
+   * @param isRateLimitDisabled - Flag to disable rate limiting logic.
+   * @param toolService - Optional service for providing tools (e.g., web search) to the LLM.
+   */
   constructor(
     llmModelFactory: LlmModelFactoryI,
     rateLimiter: RateLimiter,
@@ -40,6 +52,12 @@ export default class LlmService implements LlmServiceI {
     }
   }
 
+  /**
+   * Performs a web search using the configured tool service.
+   *
+   * @param query - The search query string.
+   * @returns A promise that resolves to the search result string.
+   */
   public async searchWeb(query: string): Promise<string> {
     if (!this.toolService) {
       return 'Search functionality is not available.';
@@ -59,6 +77,15 @@ export default class LlmService implements LlmServiceI {
     }
   }
 
+  /**
+   * Sends a prompt to the LLM and returns a structured response.
+   *
+   * This method handles fallback mode logic, rate limiting, and response parsing.
+   *
+   * @param prompt - The text prompt to send to the LLM.
+   * @returns A promise that resolves to a UnifiedResponse object (categorization result).
+   * @throws Error if the LLM response is invalid or request fails.
+   */
   public async ask(prompt: string): Promise<UnifiedResponse> {
     try {
       console.log(`Making LLM request to ${this.provider}${this.isFallbackMode ? ' (fallback mode)' : ''}`);
@@ -100,6 +127,13 @@ export default class LlmService implements LlmServiceI {
     }
   }
 
+  /**
+   * Sends a prompt to the LLM using the fallback model (e.g., for local inference).
+   * It returns the raw text response, cleaned of newlines.
+   *
+   * @param prompt - The text prompt to send.
+   * @returns A promise that resolves to the raw text response from the model.
+   */
   public async askUsingFallbackModel(prompt: string): Promise<string> {
     return this.rateLimiter.executeWithRateLimiting(
       this.provider,

@@ -6,11 +6,23 @@ import TagService from './tag-service';
 const LEGACY_NOTES_NOT_GUESSED = 'actual-ai could not guess this category';
 const LEGACY_NOTES_GUESSED = 'actual-ai guessed this category';
 
+/**
+ * Service to migrate legacy text-based markers in notes to the new hashtag-based system.
+ *
+ * Previous versions of the AI tool used verbose sentences in notes to mark status.
+ * This service converts those sentences into tags like #actual-ai-miss or #actual-ai.
+ */
 class NotesMigrator implements NotesMigratorI {
   private readonly actualApiService: ActualApiServiceI;
 
   private readonly tagService: TagService;
 
+  /**
+   * Constructs the NotesMigrator.
+   *
+   * @param actualApiService - Service to interact with the Actual Budget API.
+   * @param tagService - Service to handle tag generation and clearing.
+   */
   constructor(
     actualApiService: ActualApiServiceI,
     tagService: TagService,
@@ -19,6 +31,14 @@ class NotesMigrator implements NotesMigratorI {
     this.tagService = tagService;
   }
 
+  /**
+   * Scans all transactions for legacy markers and updates them to use tags.
+   *
+   * It iterates through transactions containing specific legacy phrases, replaces them
+   * with the appropriate tags, and updates the transaction notes via the API.
+   *
+   * @returns A promise that resolves when the migration is complete.
+   */
   async migrateToTags(): Promise<void> {
     const transactions = await this.actualApiService.getTransactions();
     const transactionsToMigrate = transactions.filter(

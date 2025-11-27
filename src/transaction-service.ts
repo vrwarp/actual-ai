@@ -10,6 +10,10 @@ import CategorySuggester from './transaction/category-suggester';
 import BatchTransactionProcessor from './transaction/batch-transaction-processor';
 import TransactionFilterer from './transaction/transaction-filterer';
 
+/**
+ * Service responsible for the high-level orchestration of transaction processing.
+ * It retrieves data, filters transactions, delegates processing, and handles new category suggestions.
+ */
 class TransactionService implements TransactionServiceI {
   private readonly actualApiService: ActualApiServiceI;
 
@@ -21,6 +25,15 @@ class TransactionService implements TransactionServiceI {
 
   private readonly isDryRun: boolean;
 
+  /**
+   * Constructs the TransactionService.
+   *
+   * @param actualApiClient - Service to interact with the Actual Budget API.
+   * @param categorySuggester - Service to handle suggestion and creation of new categories.
+   * @param transactionProcessor - Service to process transactions in batches.
+   * @param transactionFilterer - Service to filter transactions (e.g., finding uncategorized ones).
+   * @param isDryRun - If true, no side effects (like updating transactions) will occur.
+   */
   constructor(
     actualApiClient: ActualApiServiceI,
     categorySuggester: CategorySuggester,
@@ -35,6 +48,17 @@ class TransactionService implements TransactionServiceI {
     this.isDryRun = isDryRun;
   }
 
+  /**
+   * Main method to process all eligible transactions.
+   *
+   * 1. Fetches necessary data (categories, transactions, rules, etc.).
+   * 2. Filters for uncategorized transactions.
+   * 3. Retrieves manual override examples for few-shot learning.
+   * 4. Delegates processing to the batch processor.
+   * 5. Optionally handles suggestions for new categories if enabled.
+   *
+   * @returns A promise that resolves when all processing is complete.
+   */
   async processTransactions(): Promise<void> {
     if (this.isDryRun) {
       console.log('=== DRY RUN MODE ===');

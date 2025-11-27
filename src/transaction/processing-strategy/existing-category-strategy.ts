@@ -4,11 +4,20 @@ import type {
 } from '../../types';
 import TagService from '../tag-service';
 
+/**
+ * Strategy to handle LLM responses that match an existing category in the system.
+ */
 class ExistingCategoryStrategy implements ProcessingStrategyI {
   private readonly actualApiService: ActualApiServiceI;
 
   private readonly tagService: TagService;
 
+  /**
+   * Constructs the ExistingCategoryStrategy.
+   *
+   * @param actualApiService - Service to interact with the Actual Budget API.
+   * @param tagService - Service to manage transaction note tags.
+   */
   constructor(
     actualApiService: ActualApiServiceI,
     tagService: TagService,
@@ -17,6 +26,12 @@ class ExistingCategoryStrategy implements ProcessingStrategyI {
     this.tagService = tagService;
   }
 
+  /**
+   * Checks if this strategy can handle the given response.
+   *
+   * @param response - The LLM response.
+   * @returns True if the response type is 'existing' and a categoryId is present.
+   */
   public isSatisfiedBy(response: UnifiedResponse): boolean {
     if (response.categoryId === undefined) {
       return false;
@@ -25,6 +40,16 @@ class ExistingCategoryStrategy implements ProcessingStrategyI {
     return response.type === 'existing';
   }
 
+  /**
+   * Processes the transaction by assigning it to the existing category identified in the response.
+   *
+   * If the category ID is invalid or not found, the transaction is tagged as "not guessed".
+   *
+   * @param transaction - The transaction to update.
+   * @param response - The LLM response containing the category ID.
+   * @param categories - List of available categories to validate against.
+   * @returns A promise that resolves when the update is complete.
+   */
   public async process(
     transaction: TransactionEntity,
     response: UnifiedResponse,

@@ -3,13 +3,32 @@ import { APIAccountEntity } from '@actual-app/api/@types/loot-core/src/server/ap
 import { isFeatureEnabled } from '../config';
 import TagService from './tag-service';
 
+/**
+ * Service to filter transactions based on various criteria.
+ *
+ * It is primarily used to identify uncategorized transactions that require processing
+ * and to find transactions tagged as manual overrides for use as examples.
+ */
 class TransactionFilterer {
   private readonly tagService: TagService;
 
+  /**
+   * Constructs the TransactionFilterer.
+   *
+   * @param tagService - Service used to check for specific tags in transaction notes.
+   */
   constructor(tagService: TagService) {
     this.tagService = tagService;
   }
 
+  /**
+   * Helper method to apply a filter condition and log the number of excluded items.
+   *
+   * @param transactions - List of transactions to filter.
+   * @param filterFn - Predicate function that returns true for transactions to keep.
+   * @param logMessage - Message to describe the exclusion reason for logging.
+   * @returns The filtered list of transactions.
+   */
   private applyFilter(
     transactions: TransactionEntity[],
     filterFn: (transaction: TransactionEntity) => boolean,
@@ -24,6 +43,22 @@ class TransactionFilterer {
     return transactions.filter((transaction) => filterFn(transaction));
   }
 
+  /**
+   * Filters a list of transactions to find those that are uncategorized and eligible for AI classification.
+   *
+   * It excludes:
+   * - Already categorized transactions.
+   * - Transfers between accounts.
+   * - Starting balance transactions.
+   * - Transactions with no payee information.
+   * - Transactions previously missed (unless 'rerunMissedTransactions' is enabled).
+   * - Parent transactions (splits).
+   * - Transactions from off-budget accounts.
+   *
+   * @param transactions - All transactions to consider.
+   * @param accounts - List of accounts to check for off-budget status.
+   * @returns A list of eligible uncategorized transactions.
+   */
   public filterUncategorized(
     transactions: TransactionEntity[],
     accounts: APIAccountEntity[],
@@ -86,6 +121,14 @@ class TransactionFilterer {
     return filteredTransactions;
   }
 
+  /**
+   * Retrieves transactions that have been manually overridden by the user.
+   *
+   * These transactions serve as "gold standard" examples for the AI to learn from.
+   *
+   * @param transactions - List of transactions to check.
+   * @returns List of transactions containing the manual override tag.
+   */
   public getManualOverrideTransactions(
     transactions: TransactionEntity[],
   ): TransactionEntity[] {
