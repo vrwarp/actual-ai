@@ -6,6 +6,7 @@ import GivenActualData from './test-doubles/given/given-actual-data';
 import PromptTemplateException from '../src/exceptions/prompt-template-exception';
 import handlebars from '../src/handlebars-helpers';
 import * as config from '../src/config';
+import { APICategoryGroupEntityWithDescription } from '../src/types';
 
 // Mock the isToolEnabled function
 jest.spyOn(config, 'isToolEnabled').mockReturnValue(false);
@@ -50,7 +51,7 @@ describe('PromptGenerator', () => {
     // Create a type-safe copy of category groups with only required properties
     const safeCategoryGroups = categoryGroups.map((group) => {
       // Extract only properties we know exist in APICategoryGroupEntity
-      const safeGroup: APICategoryGroupEntity = {
+      const safeGroup: APICategoryGroupEntityWithDescription = {
         id: group.id,
         name: group.name,
         is_income: group.is_income,
@@ -64,6 +65,8 @@ describe('PromptGenerator', () => {
         group_id: category.group_id,
         is_income: category.is_income,
       }));
+
+      safeGroup.description = categories.map((c) => c.name).join(', ');
 
       safeGroup.categories = categories;
       return safeGroup;

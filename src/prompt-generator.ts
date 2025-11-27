@@ -3,6 +3,7 @@ import { RuleEntity, TransactionEntity } from '@actual-app/api/@types/loot-core/
 import handlebars from './handlebars-helpers';
 import {
   PromptGeneratorI,
+  APICategoryGroupEntityWithDescription,
 } from './types';
 import PromptTemplateException from './exceptions/prompt-template-exception';
 import { isToolEnabled } from './config';
@@ -37,6 +38,8 @@ class PromptGenerator implements PromptGeneratorI {
       ...group,
       groupName: group.name,
       categories: group.categories ?? [],
+      description: (group as APICategoryGroupEntityWithDescription).description
+        || (group.categories || []).map((c) => c.name).join(', '),
     }));
 
     const rulesDescription = transformRulesToDescriptions(

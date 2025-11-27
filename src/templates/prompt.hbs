@@ -17,7 +17,7 @@ Transaction details:
 
 Existing categories by group:
 {{#each categoryGroups}}
-GROUP: {{name}} (ID: "{{id}}")
+GROUP: {{name}} (ID: "{{id}}"){{#if description}} - {{description}}{{/if}}
 {{#each categories}}
 * {{name}} (ID: "{{id}}")
 {{/each}}

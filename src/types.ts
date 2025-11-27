@@ -12,6 +12,8 @@ import {
 export type APICategoryEntity = ImportedAPICategoryEntity | CategoryEntity;
 export type APICategoryGroupEntity = ImportedAPICategoryGroupEntity | CategoryGroupEntity;
 
+export type APICategoryGroupEntityWithDescription = APICategoryGroupEntity & { description?: string };
+
 export interface LlmModelI {
   ask(prompt: string, possibleAnswers: string[]): Promise<string>;
 }
