@@ -105,10 +105,7 @@ class TagService {
     // The alternation (A|B|C) checks in order, so longer tags must come first.
     const combinedPattern = new RegExp(`\\s*(${patterns.join('|')})`, 'g');
 
-    return notes
-      .replace(/-miss(?= #actual-ai)/g, '')
-      .replace(combinedPattern, '')
-      .trim();
+    return notes.replace(combinedPattern, '').trim();
   }
 
   /**
