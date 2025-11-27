@@ -85,6 +85,12 @@ class TransactionFilterer {
 
     return filteredTransactions;
   }
+
+  public getManualOverrideTransactions(
+    transactions: TransactionEntity[],
+  ): TransactionEntity[] {
+    return transactions.filter((transaction) => this.tagService.isManualOverride(transaction.notes ?? ''));
+  }
 }
 
 export default TransactionFilterer;

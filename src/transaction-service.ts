@@ -63,6 +63,9 @@ class TransactionService implements TransactionServiceI {
       return;
     }
 
+    const examples = this.transactionFilterer.getManualOverrideTransactions(transactions);
+    console.log(`Found ${examples.length} manual override examples`);
+
     // Track suggested new categories
     const suggestedCategories = new Map<string, {
       name: string;
@@ -77,6 +80,7 @@ class TransactionService implements TransactionServiceI {
       categoryGroups,
       payees,
       rules,
+      examples,
       categories,
       suggestedCategories,
     );
