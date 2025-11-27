@@ -3,15 +3,32 @@ import type {
 } from '@actual-app/api/@types/loot-core/src/types/models';
 import SimilarityCalculator from './similarity-calculator';
 
+/**
+ * Service responsible for optimizing category suggestions by merging similar categories.
+ */
 class CategorySuggestionOptimizer {
   private readonly similarityCalculator: SimilarityCalculator;
 
+  /**
+   * Constructs a CategorySuggestionOptimizer.
+   *
+   * @param similarityCalculator - The calculator used to determine string similarity between category names.
+   */
   constructor(
     similarityCalculator: SimilarityCalculator,
   ) {
     this.similarityCalculator = similarityCalculator;
   }
 
+  /**
+   * Optimizes a map of suggested categories by clustering similar names and merging them.
+   *
+   * This method groups categories with similar names (using a dynamic similarity threshold),
+   * selects the best representative name for each cluster, and merges their transactions.
+   *
+   * @param suggestedCategories - A map where keys are unique identifiers (e.g., "Group:Category") and values are category details.
+   * @returns A new map of optimized category suggestions.
+   */
   public optimizeCategorySuggestions(
     suggestedCategories: Map<string, {
             name: string;
@@ -119,6 +136,14 @@ class CategorySuggestionOptimizer {
     );
   }
 
+  /**
+   * Selects the best name from a list of candidate names.
+   *
+   * It scores names based on word frequency across the candidates and length preference.
+   *
+   * @param names - An array of candidate category names.
+   * @returns The name with the highest score.
+   */
   private chooseBestCategoryName(names: string[]): string {
     if (names.length === 1) return names[0];
 

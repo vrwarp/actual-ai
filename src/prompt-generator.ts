@@ -8,15 +8,38 @@ import PromptTemplateException from './exceptions/prompt-template-exception';
 import { isToolEnabled } from './config';
 import { transformRulesToDescriptions } from './utils/rule-utils';
 
+/**
+ * Service responsible for generating the prompt string sent to the LLM.
+ * It uses a Handlebars template to format the transaction data and context.
+ */
 class PromptGenerator implements PromptGeneratorI {
   private readonly promptTemplate: string;
 
+  /**
+   * Constructs a PromptGenerator.
+   *
+   * @param promptTemplate - The raw Handlebars template string to use for generation.
+   */
   constructor(
     promptTemplate: string,
   ) {
     this.promptTemplate = promptTemplate;
   }
 
+  /**
+   * Generates a fully populated prompt string for a specific transaction.
+   *
+   * This method combines the transaction details, available categories, relevant rules,
+   * and example transactions into a single text prompt using the configured template.
+   *
+   * @param categoryGroups - List of all category groups and their categories.
+   * @param transaction - The transaction to be classified.
+   * @param payees - List of all payees in the system.
+   * @param rules - List of rules relevant to the transaction context.
+   * @param examples - List of similar past transactions to serve as few-shot examples.
+   * @returns The generated prompt string.
+   * @throws PromptTemplateException if there is an error compiling or executing the template.
+   */
   generate(
     categoryGroups: APICategoryGroupEntity[],
     transaction: TransactionEntity,

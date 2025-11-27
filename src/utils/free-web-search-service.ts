@@ -2,19 +2,25 @@ import * as https from 'https';
 import { SearchResult } from '../types';
 
 /**
- * A free web search service that can be used as an alternative to ValueSerp.
- * This service uses the SerpApi.com free API to search the web.
+ * A free web search service that acts as an alternative to commercial search APIs.
+ * It primarily uses scraping of a search engine's "lite" interface to retrieve results.
  */
 export default class FreeWebSearchService {
   /**
-   * Search the web using a free API
+   * Performs a web search for the given query.
+   *
+   * @param query - The search query string.
+   * @returns A promise that resolves to an array of SearchResult objects.
    */
   public async search(query: string): Promise<SearchResult[]> {
     return this.searchUsingDDG(query);
   }
 
   /**
-   * Search using DuckDuckGo API
+   * Implementation of web search using DuckDuckGo Lite.
+   *
+   * @param query - The search query.
+   * @returns A promise resolving to parsed search results.
    */
   private async searchUsingDDG(query: string): Promise<SearchResult[]> {
     const url = `https://lite.duckduckgo.com/lite/?q=${encodeURIComponent(query)}`;
@@ -56,7 +62,12 @@ export default class FreeWebSearchService {
   }
 
   /**
-   * Fetch a URL and return the response as text
+   * Fetches the content of a URL as a string.
+   * Includes retry logic for transient errors.
+   *
+   * @param url - The URL to fetch.
+   * @param retries - Number of retry attempts (default: 3).
+   * @returns A promise that resolves to the response body string.
    */
   private async fetchUrl(url: string, retries = 3): Promise<string> {
     // console.debug('[SearchService] Fetching URL:', url);
@@ -95,7 +106,10 @@ export default class FreeWebSearchService {
   }
 
   /**
-   * Format search results in a similar way to the ValueSerp service
+   * Formats the raw search results into a single string summary.
+   *
+   * @param results - The array of SearchResult objects.
+   * @returns A formatted string suitable for inclusion in an LLM prompt.
    */
   public formatSearchResults(results: SearchResult[]): string {
     if (!results || results.length === 0) {
@@ -113,7 +127,10 @@ export default class FreeWebSearchService {
   }
 
   /**
-   * Decode HTML entities in a string
+   * Decodes basic HTML entities in a string.
+   *
+   * @param html - The string with HTML entities.
+   * @returns The decoded string.
    */
   private decodeHtmlEntities(html: string): string {
     return html

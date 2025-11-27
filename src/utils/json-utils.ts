@@ -1,5 +1,14 @@
 import { UnifiedResponse } from '../types';
 
+/**
+ * Cleans raw text output from an LLM to extract the JSON payload.
+ *
+ * It removes Markdown code fences, extracts the content between the first `{` and last `}`,
+ * or handles cases where the response is a simple string ID.
+ *
+ * @param text - The raw response text from the LLM.
+ * @returns The cleaned JSON string or the original text if it looks like an ID.
+ */
 function cleanJsonResponse(text: string): string {
   // If the text looks like a UUID or simple ID, return it as is
   if (/^[a-zA-Z0-9_-]+$/.test(text.trim())) {
@@ -23,6 +32,16 @@ function cleanJsonResponse(text: string): string {
   return cleaned.trim();
 }
 
+/**
+ * Parses the LLM's text response into a structured UnifiedResponse object.
+ *
+ * It handles JSON parsing errors and attempts to interpret the response gracefully
+ * (e.g., treating a simple string as a category ID).
+ *
+ * @param text - The raw response text from the LLM.
+ * @returns The parsed UnifiedResponse object.
+ * @throws Error if the response cannot be parsed or does not match expected formats.
+ */
 function parseLlmResponse(text: string): UnifiedResponse {
   const cleanedText = cleanJsonResponse(text);
   console.log('Cleaned LLM response:', cleanedText);

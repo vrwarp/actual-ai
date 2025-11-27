@@ -31,13 +31,24 @@ export const groqApiKey = process.env.GROQ_API_KEY ?? '';
 export const groqModel = process.env.GROQ_MODEL ?? 'llama-3.3-70b-versatile';
 export const groqBaseURL = process.env.GROQ_BASE_URL ?? 'https://api.groq.com/openai/v1';
 export const valueSerpApiKey = process.env.VALUESERP_API_KEY ?? '';
+
+/**
+ * Interface representing a feature flag configuration.
+ */
 export interface FeatureFlag {
+  /** Indicates if the feature is currently enabled. */
   enabled: boolean;
+  /** The default value for the feature if not explicitly configured. */
   defaultValue: boolean;
+  /** A human-readable description of what the feature does. */
   description: string;
+  /** Optional list of related options or sub-features. */
   options?: string[];
 }
 
+/**
+ * Type definition for a collection of feature flags.
+ */
 export type FeatureFlags = Record<string, FeatureFlag>;
 
 export const features: FeatureFlags = {};
@@ -56,6 +67,9 @@ try {
   console.warn('Failed to parse FEATURES environment variable, ignoring', e);
 }
 
+/**
+ * Registers standard built-in features with the feature flag system.
+ */
 function registerStandardFeatures() {
   features.suggestNewCategories = {
     enabled: enabledFeatures.includes('suggestNewCategories'),
@@ -94,6 +108,10 @@ function registerStandardFeatures() {
   };
 }
 
+/**
+ * Registers tool-related features with the feature flag system.
+ * Handles legacy environment variable configuration.
+ */
 function registerToolFeatures() {
   const legacyTools = (process.env.ENABLED_TOOLS ?? '').split(',')
     .map((tool) => tool.trim())
@@ -124,10 +142,25 @@ function registerToolFeatures() {
 registerStandardFeatures();
 registerToolFeatures();
 
+/**
+ * Checks if a specific feature is enabled.
+ *
+ * @param featureName - The name of the feature to check.
+ * @returns True if the feature is enabled, false otherwise.
+ */
 export function isFeatureEnabled(featureName: string): boolean {
   return features[featureName]?.enabled ?? features[featureName]?.defaultValue ?? false;
 }
 
+/**
+ * Registers a custom feature flag dynamically.
+ *
+ * @param name - The unique identifier for the feature.
+ * @param enabled - Whether the feature is enabled by default.
+ * @param defaultValue - The default value to fallback to.
+ * @param description - A description of the feature.
+ * @param options - Optional additional configuration options.
+ */
 export function registerCustomFeatureFlag(
   name: string,
   enabled: boolean,
@@ -143,6 +176,13 @@ export function registerCustomFeatureFlag(
   };
 }
 
+/**
+ * Toggles a feature on or off.
+ *
+ * @param featureName - The name of the feature to toggle.
+ * @param enabled - Optional boolean to force a specific state (true/false). If omitted, toggles the current state.
+ * @returns The new state of the feature (true if enabled, false if disabled). Returns false if the feature does not exist.
+ */
 export function toggleFeature(featureName: string, enabled?: boolean): boolean {
   if (!features[featureName]) {
     console.warn(`Feature flag '${featureName}' does not exist`);
@@ -153,12 +193,23 @@ export function toggleFeature(featureName: string, enabled?: boolean): boolean {
   return newValue;
 }
 
+/**
+ * Retrieves a list of all enabled tools.
+ *
+ * @returns An array of strings representing the names of enabled tools.
+ */
 export function getEnabledTools(): string[] {
   return Object.entries(features)
     .filter(([_, config]) => config.options && isFeatureEnabled(config.options[0]))
     .flatMap(([_, config]) => config.options ?? []);
 }
 
+/**
+ * Checks if a specific tool is enabled.
+ *
+ * @param toolName - The name of the tool to check.
+ * @returns True if the tool is enabled, false otherwise.
+ */
 export function isToolEnabled(toolName: string): boolean {
   return getEnabledTools().includes(toolName);
 }

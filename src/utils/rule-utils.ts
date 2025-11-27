@@ -3,7 +3,13 @@ import { RuleEntity } from '@actual-app/api/@types/loot-core/src/types/models';
 import { RuleDescription } from '../types';
 
 /**
- * Transforms rule entities into a more readable description format
+ * Transforms complex rule entities into a simplified, human-readable description format.
+ * This is primarily used to provide context to the LLM about existing categorization rules.
+ *
+ * @param rules - The list of rule entities to transform.
+ * @param categories - The list of available categories (to resolve category names).
+ * @param payees - The list of available payees (to resolve payee names from IDs).
+ * @returns An array of simplified RuleDescription objects.
  */
 export function transformRulesToDescriptions(
   rules: RuleEntity[],
