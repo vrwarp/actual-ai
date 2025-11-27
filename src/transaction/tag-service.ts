@@ -80,19 +80,32 @@ class TagService {
    * @returns The cleaned notes string.
    */
   public clearPreviousTags(notes: string): string {
-    // Order matters here because guessedTag (#actual-ai) is a substring of
-    // notGuessedTag (#actual-ai-miss) and manualOverrideTag (#actual-ai-override).
-    // If we replace guessedTag first, we might leave partial tags behind.
-    return notes
-      .replace(new RegExp(`\\s*${this.escapeRegExp(this.manualOverrideTag)}`, 'g'), '')
-      .replace(new RegExp(`\\s*${this.escapeRegExp(this.notGuessedTag)}`, 'g'), '')
-      .replace(new RegExp(`\\s*${this.escapeRegExp(this.guessedTag)}`, 'g'), '')
-      .replace(new RegExp(`\\s*\\|\\s*${this.escapeRegExp(LEGACY_NOTES_NOT_GUESSED)}`, 'g'), '')
-      .replace(new RegExp(`\\s*\\|\\s*${this.escapeRegExp(LEGACY_NOTES_GUESSED)}`, 'g'), '')
-      .replace(new RegExp(`\\s*${this.escapeRegExp(LEGACY_NOTES_GUESSED)}`, 'g'), '')
-      .replace(new RegExp(`\\s*${this.escapeRegExp(LEGACY_NOTES_NOT_GUESSED)}`, 'g'), '')
-      .replace(/-miss(?= #actual-ai)/g, '')
-      .trim();
+    // Collect all tag patterns to remove.
+    // Order doesn't matter initially, because we sort them by length.
+    const tags = [
+      this.manualOverrideTag,
+      this.notGuessedTag,
+      this.guessedTag,
+      LEGACY_NOTES_NOT_GUESSED,
+      LEGACY_NOTES_GUESSED,
+    ];
+
+    const patterns = tags.map((tag) => this.escapeRegExp(tag));
+
+    // Add legacy pipe patterns (e.g. " | actual-ai...")
+    // These are constructed from the legacy strings
+    patterns.push(`\\|\\s*${this.escapeRegExp(LEGACY_NOTES_NOT_GUESSED)}`);
+    patterns.push(`\\|\\s*${this.escapeRegExp(LEGACY_NOTES_GUESSED)}`);
+
+    // Sort patterns by length descending. This ensures that longer matches (e.g. #actual-ai-miss)
+    // are attempted before shorter matches (e.g. #actual-ai), preventing partial removals.
+    patterns.sort((a, b) => b.length - a.length);
+
+    // Create a single regex that matches any of the tags, optionally preceded by whitespace.
+    // The alternation (A|B|C) checks in order, so longer tags must come first.
+    const combinedPattern = new RegExp(`\\s*(${patterns.join('|')})`, 'g');
+
+    return notes.replace(combinedPattern, '').trim();
   }
 
   /**
