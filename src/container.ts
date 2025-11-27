@@ -20,6 +20,7 @@ import {
   guessedTag,
   isFeatureEnabled,
   llmProvider,
+  manualOverrideTag,
   notGuessedTag,
   ollamaBaseURL,
   ollamaModel,
@@ -95,7 +96,7 @@ const llmService = new LlmService(
   toolService,
 );
 
-const tagService = new TagService(notGuessedTag, guessedTag);
+const tagService = new TagService(notGuessedTag, guessedTag, manualOverrideTag);
 
 const ruleMatchStrategy = new RuleMatchStrategy(actualApiService, tagService);
 const existingCategoryStrategy = new ExistingCategoryStrategy(

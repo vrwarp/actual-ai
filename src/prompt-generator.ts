@@ -22,6 +22,7 @@ class PromptGenerator implements PromptGeneratorI {
     transaction: TransactionEntity,
     payees: APIPayeeEntity[],
     rules: RuleEntity[],
+    examples: TransactionEntity[],
   ): string {
     let template;
     try {
@@ -45,12 +46,29 @@ class PromptGenerator implements PromptGeneratorI {
       payees,
     );
 
+    const examplesDescription = examples.map((example) => {
+      const examplePayee = payees.find((payee) => payee.id === example.payee)?.name;
+      const exampleCategory = groupsWithCategories
+        .flatMap((group) => group.categories)
+        .find((cat) => cat.id === example.category);
+
+      return {
+        amount: Math.abs(example.amount),
+        type: example.amount > 0 ? 'Income' : 'Outcome',
+        description: example.notes ?? '',
+        payee: examplePayee ?? '',
+        importedPayee: example.imported_payee ?? '',
+        category: exampleCategory?.name ?? 'Unknown Category',
+      };
+    });
+
     try {
       const webSearchEnabled = (typeof isToolEnabled('webSearch') === 'boolean' && isToolEnabled('webSearch'))
         || (typeof isToolEnabled('freeWebSearch') === 'boolean' && isToolEnabled('freeWebSearch'));
       return template({
         categoryGroups: groupsWithCategories,
         rules: rulesDescription,
+        examples: examplesDescription,
         amount: Math.abs(transaction.amount),
         type: transaction.amount > 0 ? 'Income' : 'Outcome',
         description: transaction.notes ?? '',

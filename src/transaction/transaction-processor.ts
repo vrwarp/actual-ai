@@ -40,6 +40,7 @@ class TransactionProcessor {
     categoryGroups: APICategoryGroupEntity[],
     payees: APIPayeeEntity[],
     rules: RuleEntity[],
+    examples: TransactionEntity[],
     categories: (APICategoryEntity | APICategoryGroupEntity)[],
     suggestedCategories: Map<string, {
         name: string;
@@ -55,6 +56,7 @@ class TransactionProcessor {
         transaction,
         payees,
         rules,
+        examples,
       );
 
       const response = await this.llmService.ask(prompt);

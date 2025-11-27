@@ -37,6 +37,7 @@ describe('ActualAiService', () => {
   let notesMigrator: NotesMigratorI;
   const GUESSED_TAG = '#actual-ai';
   const NOT_GUESSED_TAG = '#actual-ai-miss';
+  const MANUAL_OVERRIDE_TAG = '#actual-ai-override';
 
   beforeEach(() => {
     // Reset mock implementation before each test
@@ -48,7 +49,7 @@ describe('ActualAiService', () => {
     inMemoryApiService = new InMemoryActualApiService();
     mockedLlmService = new MockedLlmService();
     mockedPromptGenerator = new MockedPromptGenerator();
-    const tagService = new TagService(NOT_GUESSED_TAG, GUESSED_TAG);
+    const tagService = new TagService(NOT_GUESSED_TAG, GUESSED_TAG, MANUAL_OVERRIDE_TAG);
     const ruleMatchStrategy = new RuleMatchStrategy(inMemoryApiService, tagService);
     const existingCategoryStrategy = new ExistingCategoryStrategy(
       inMemoryApiService,

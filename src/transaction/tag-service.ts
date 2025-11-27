@@ -6,12 +6,16 @@ class TagService {
 
   private readonly guessedTag: string;
 
+  private readonly manualOverrideTag: string;
+
   constructor(
     notGuessedTag: string,
     guessedTag: string,
+    manualOverrideTag: string,
   ) {
     this.notGuessedTag = notGuessedTag;
     this.guessedTag = guessedTag;
+    this.manualOverrideTag = manualOverrideTag;
   }
 
   public addNotGuessedTag(notes: string): string {
@@ -28,9 +32,13 @@ class TagService {
   }
 
   public clearPreviousTags(notes: string): string {
+    // Order matters here because guessedTag (#actual-ai) is a substring of
+    // notGuessedTag (#actual-ai-miss) and manualOverrideTag (#actual-ai-override).
+    // If we replace guessedTag first, we might leave partial tags behind.
     return notes
-      .replace(new RegExp(`\\s*${this.guessedTag}`, 'g'), '')
+      .replace(new RegExp(`\\s*${this.manualOverrideTag}`, 'g'), '')
       .replace(new RegExp(`\\s*${this.notGuessedTag}`, 'g'), '')
+      .replace(new RegExp(`\\s*${this.guessedTag}`, 'g'), '')
       .replace(new RegExp(`\\s*\\|\\s*${LEGACY_NOTES_NOT_GUESSED}`, 'g'), '')
       .replace(new RegExp(`\\s*\\|\\s*${LEGACY_NOTES_GUESSED}`, 'g'), '')
       .replace(new RegExp(`\\s*${LEGACY_NOTES_GUESSED}`, 'g'), '')
@@ -41,6 +49,10 @@ class TagService {
 
   public isNotGuessed(notes: string): boolean {
     return notes.includes(this.notGuessedTag);
+  }
+
+  public isManualOverride(notes: string): boolean {
+    return notes.includes(this.manualOverrideTag);
   }
 }
 

@@ -113,6 +113,7 @@ export interface PromptGeneratorI {
     transaction: TransactionEntity,
     payees: APIPayeeEntity[],
     rules: RuleEntity[],
+    examples: TransactionEntity[],
   ): string;
 }
 

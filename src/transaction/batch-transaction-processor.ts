@@ -26,6 +26,7 @@ class BatchTransactionProcessor {
     categoryGroups: APICategoryGroupEntity[],
     payees: APIPayeeEntity[],
     rules: RuleEntity[],
+    examples: TransactionEntity[],
     categories: (APICategoryEntity | APICategoryGroupEntity)[],
     suggestedCategories: Map<string, {
         name: string;
@@ -57,6 +58,7 @@ class BatchTransactionProcessor {
           categoryGroups,
           payees,
           rules,
+          examples,
           categories,
           suggestedCategories,
         );
