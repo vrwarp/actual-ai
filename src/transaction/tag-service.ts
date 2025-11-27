@@ -66,6 +66,10 @@ class TagService {
     return `${clearedNotes} ${tag}`.trim();
   }
 
+  private escapeRegExp(string: string): string {
+    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+
   /**
    * Removes all AI-related tags and legacy markers from the notes.
    *
@@ -80,13 +84,13 @@ class TagService {
     // notGuessedTag (#actual-ai-miss) and manualOverrideTag (#actual-ai-override).
     // If we replace guessedTag first, we might leave partial tags behind.
     return notes
-      .replace(new RegExp(`\\s*${this.manualOverrideTag}`, 'g'), '')
-      .replace(new RegExp(`\\s*${this.notGuessedTag}`, 'g'), '')
-      .replace(new RegExp(`\\s*${this.guessedTag}`, 'g'), '')
-      .replace(new RegExp(`\\s*\\|\\s*${LEGACY_NOTES_NOT_GUESSED}`, 'g'), '')
-      .replace(new RegExp(`\\s*\\|\\s*${LEGACY_NOTES_GUESSED}`, 'g'), '')
-      .replace(new RegExp(`\\s*${LEGACY_NOTES_GUESSED}`, 'g'), '')
-      .replace(new RegExp(`\\s*${LEGACY_NOTES_NOT_GUESSED}`, 'g'), '')
+      .replace(new RegExp(`\\s*${this.escapeRegExp(this.manualOverrideTag)}`, 'g'), '')
+      .replace(new RegExp(`\\s*${this.escapeRegExp(this.notGuessedTag)}`, 'g'), '')
+      .replace(new RegExp(`\\s*${this.escapeRegExp(this.guessedTag)}`, 'g'), '')
+      .replace(new RegExp(`\\s*\\|\\s*${this.escapeRegExp(LEGACY_NOTES_NOT_GUESSED)}`, 'g'), '')
+      .replace(new RegExp(`\\s*\\|\\s*${this.escapeRegExp(LEGACY_NOTES_GUESSED)}`, 'g'), '')
+      .replace(new RegExp(`\\s*${this.escapeRegExp(LEGACY_NOTES_GUESSED)}`, 'g'), '')
+      .replace(new RegExp(`\\s*${this.escapeRegExp(LEGACY_NOTES_NOT_GUESSED)}`, 'g'), '')
       .replace(/-miss(?= #actual-ai)/g, '')
       .trim();
   }
