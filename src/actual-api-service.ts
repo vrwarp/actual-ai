@@ -3,8 +3,8 @@ import {
   APICategoryEntity,
   APICategoryGroupEntity,
   APIPayeeEntity,
-} from '@actual-app/api/@types/loot-core/server/api-models';
-import { TransactionEntity } from '@actual-app/api/@types/loot-core/types/models';
+} from '@actual-app/api/@types/loot-core/src/server/api-models';
+import { TransactionEntity, RuleEntity } from '@actual-app/api/@types/loot-core/src/types/models';
 import { ActualApiServiceI } from './types';
 
 class ActualApiService implements ActualApiServiceI {
@@ -22,7 +22,7 @@ class ActualApiService implements ActualApiServiceI {
 
   private readonly e2ePassword: string;
 
-  private readonly dryRun: boolean;
+  private readonly isDryRun: boolean;
 
   constructor(
     actualApiClient: typeof import('@actual-app/api'),
@@ -32,7 +32,7 @@ class ActualApiService implements ActualApiServiceI {
     password: string,
     budgetId: string,
     e2ePassword: string,
-    dryRun: boolean,
+    isDryRun: boolean,
   ) {
     this.actualApiClient = actualApiClient;
     this.fs = fs;
@@ -41,11 +41,11 @@ class ActualApiService implements ActualApiServiceI {
     this.password = password;
     this.budgetId = budgetId;
     this.e2ePassword = e2ePassword;
-    this.dryRun = dryRun;
+    this.isDryRun = isDryRun;
   }
 
   public async initializeApi() {
-    if (this.dryRun) {
+    if (this.isDryRun) {
       console.log('ActualApiService is initialized in dry run mode. No write operations will be performed.');
     }
 
@@ -112,13 +112,30 @@ class ActualApiService implements ActualApiServiceI {
   }
 
   public async getTransactions(): Promise<TransactionEntity[]> {
+    let transactions: TransactionEntity[] = [];
+    const accounts = await this.getAccounts();
+    // eslint-disable-next-line no-restricted-syntax
+    for (const account of accounts) {
+      transactions = transactions.concat(
+        await this.actualApiClient.getTransactions(account.id, '1990-01-01', '2030-01-01'),
+      );
+    }
+    return transactions;
+  }
+
+  public async getRules(): Promise<RuleEntity[]> {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-    return this.actualApiClient.getTransactions(undefined, undefined, undefined);
+    return this.actualApiClient.getRules();
+  }
+
+  public async getPayeeRules(payeeId: string): Promise<RuleEntity[]> {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+    return this.actualApiClient.getPayeeRules(payeeId);
   }
 
   public async updateTransactionNotes(id: string, notes: string): Promise<void> {
-    if (this.dryRun) {
-      console.log(`Dry run: updateTransactionNotes(id:${id}, notes: ${notes})`);
+    if (this.isDryRun) {
+      console.log(`DRY RUN: Would update transaction notes of ${id} to: ${notes}`);
       return;
     }
     await this.actualApiClient.updateTransaction(id, { notes });
@@ -129,19 +146,50 @@ class ActualApiService implements ActualApiServiceI {
     notes: string,
     categoryId: string,
   ): Promise<void> {
-    if (this.dryRun) {
-      console.log(`Dry run: updateTransactionNotesAndCategory(id:${id}, notes: ${notes}, categoryId: ${categoryId})`);
+    if (this.isDryRun) {
+      console.log(`DRY RUN: Would update transaction notes ${id} to: ${notes} and category to ${categoryId}`);
       return;
     }
     await this.actualApiClient.updateTransaction(id, { notes, category: categoryId });
   }
 
   public async runBankSync(): Promise<void> {
-    if (this.dryRun) {
-      console.log('Dry run: runBankSync');
+    if (this.isDryRun) {
+      console.log('DRY RUN: Would run bank sync');
       return;
     }
     await this.actualApiClient.runBankSync();
+  }
+
+  public async createCategory(name: string, groupId: string): Promise<string> {
+    if (this.isDryRun) {
+      console.log(`DRY RUN: Would create category name: ${name} groupId: ${groupId}`);
+      return 'dry run';
+    }
+    const result = await this.actualApiClient.createCategory({
+      name,
+      group_id: groupId,
+    });
+
+    return result;
+  }
+
+  public async createCategoryGroup(name: string): Promise<string> {
+    if (this.isDryRun) {
+      console.log(`DRY RUN: Would create category group: ${name}`);
+      return 'dry run';
+    }
+    return this.actualApiClient.createCategoryGroup({
+      name,
+    });
+  }
+
+  public async updateCategoryGroup(id: string, name: string): Promise<void> {
+    if (this.isDryRun) {
+      console.log(`DRY RUN: Would update category group name: ${name} groupId: ${id}`);
+      return;
+    }
+    await this.actualApiClient.updateCategoryGroup(id, { name });
   }
 }
 

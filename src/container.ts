@@ -9,8 +9,8 @@ import {
   anthropicModel,
   budgetId,
   dataDir,
-  dryRun,
   e2ePassword,
+  getEnabledTools,
   googleApiKey,
   googleBaseURL,
   googleModel,
@@ -18,6 +18,7 @@ import {
   groqBaseURL,
   groqModel,
   guessedTag,
+  isFeatureEnabled,
   llmProvider,
   manualPromptTemplate,
   notGuessedTag,
@@ -30,11 +31,31 @@ import {
   password,
   promptTemplate,
   serverURL,
-  syncAccountsBeforeClassify,
+  valueSerpApiKey,
 } from './config';
 import ActualAiService from './actual-ai';
 import PromptGenerator from './prompt-generator';
 import LlmService from './llm-service';
+import ToolService from './utils/tool-service';
+import SimilarityCalculator from './similarity-calculator';
+import CategorySuggestionOptimizer from './category-suggestion-optimizer';
+import NotesMigrator from './transaction/notes-migrator';
+import TagService from './transaction/tag-service';
+import RuleMatchStrategy from './transaction/processing-strategy/rule-match-strategy';
+import ExistingCategoryStrategy from './transaction/processing-strategy/existing-category-strategy';
+import NewCategoryStrategy from './transaction/processing-strategy/new-category-strategy';
+import CategorySuggester from './transaction/category-suggester';
+import BatchTransactionProcessor from './transaction/batch-transaction-processor';
+import TransactionProcessor from './transaction/transaction-processor';
+import TransactionFilterer from './transaction/transaction-filterer';
+import RateLimiter from './utils/rate-limiter';
+
+// Create tool service if API key is available and tools are enabled
+const toolService = valueSerpApiKey && getEnabledTools().length > 0
+  ? new ToolService(valueSerpApiKey)
+  : undefined;
+
+const isDryRun = isFeatureEnabled('dryRun');
 
 const llmModelFactory = new LlmModelFactory(
   llmProvider,
@@ -62,30 +83,68 @@ const actualApiService = new ActualApiService(
   password,
   budgetId,
   e2ePassword,
-  dryRun,
+  isDryRun,
+);
+
+const promptGenerator = new PromptGenerator(
+  promptTemplate,
 );
 
 const llmService = new LlmService(
   llmModelFactory,
+  new RateLimiter(true),
+  isFeatureEnabled('disableRateLimiter'),
+  toolService,
 );
 
-const promptGenerator = new PromptGenerator(promptTemplate);
-const manualPromptGenerator = new PromptGenerator(manualPromptTemplate);
+const tagService = new TagService(notGuessedTag, guessedTag);
 
-const transactionService = new TransactionService(
+const ruleMatchStrategy = new RuleMatchStrategy(actualApiService, tagService);
+const existingCategoryStrategy = new ExistingCategoryStrategy(
+  actualApiService,
+  tagService,
+);
+
+const categorySuggester = new CategorySuggester(
+  actualApiService,
+  new CategorySuggestionOptimizer(new SimilarityCalculator()),
+  tagService,
+);
+
+const newCategoryStrategy = new NewCategoryStrategy();
+
+const transactionProcessor = new TransactionProcessor(
   actualApiService,
   llmService,
   promptGenerator,
-  manualPromptGenerator,
-  notGuessedTag,
-  guessedTag,
-  overrideTag,
+  tagService,
+  [ruleMatchStrategy, existingCategoryStrategy, newCategoryStrategy],
+);
+
+const batchTransactionProcessor = new BatchTransactionProcessor(
+  transactionProcessor,
+  20,
+);
+
+const transactionFilterer = new TransactionFilterer(tagService);
+
+const transactionService = new TransactionService(
+  actualApiService,
+  categorySuggester,
+  batchTransactionProcessor,
+  transactionFilterer,
+  isDryRun,
+);
+
+const notesMigrator = new NotesMigrator(
+  actualApiService,
+  tagService,
 );
 
 const actualAi = new ActualAiService(
   transactionService,
   actualApiService,
-  syncAccountsBeforeClassify,
+  notesMigrator,
 );
 
 export default actualAi;

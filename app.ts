@@ -1,18 +1,20 @@
 import cron from 'node-cron';
-import { cronSchedule, classifyOnStartup } from './src/config';
+import { cronSchedule, isFeatureEnabled } from './src/config';
 import actualAi from './src/container';
 
-if (!cron.validate(cronSchedule)) {
-  console.error('Invalid cron schedule:', cronSchedule);
+if (!isFeatureEnabled('classifyOnStartup') && !cron.validate(cronSchedule)) {
+  console.error('classifyOnStartup not set or invalid cron schedule:', cronSchedule);
   process.exit(1);
 }
 
-cron.schedule(cronSchedule, async () => {
-  await actualAi.classify();
-});
+if (cron.validate(cronSchedule)) {
+  cron.schedule(cronSchedule, async () => {
+    await actualAi.classify();
+  });
+}
 
 console.log('Application started');
-if (classifyOnStartup) {
+if (isFeatureEnabled('classifyOnStartup')) {
   (async () => {
     await actualAi.classify();
   })();

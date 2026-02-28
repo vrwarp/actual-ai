@@ -1,15 +1,32 @@
-import {
-  APIAccountEntity,
-  APICategoryEntity,
-  APICategoryGroupEntity,
-  APIPayeeEntity,
-} from '@actual-app/api/@types/loot-core/server/api-models';
+import ActualAiService from '../src/actual-ai';
 import TransactionService from '../src/transaction-service';
 import InMemoryActualApiService from './test-doubles/in-memory-actual-api-service';
 import MockedLlmService from './test-doubles/mocked-llm-service';
 import MockedPromptGenerator from './test-doubles/mocked-prompt-generator';
 import GivenActualData from './test-doubles/given/given-actual-data';
-import ActualAiService from '../src/actual-ai';
+import * as config from '../src/config';
+import SimilarityCalculator from '../src/similarity-calculator';
+import CategorySuggestionOptimizer from '../src/category-suggestion-optimizer';
+import { CategorySuggestion, NotesMigratorI } from '../src/types';
+import NotesMigrator from '../src/transaction/notes-migrator';
+import TagService from '../src/transaction/tag-service';
+import RuleMatchStrategy from '../src/transaction/processing-strategy/rule-match-strategy';
+import ExistingCategoryStrategy from '../src/transaction/processing-strategy/existing-category-strategy';
+import NewCategoryStrategy from '../src/transaction/processing-strategy/new-category-strategy';
+import CategorySuggester from '../src/transaction/category-suggester';
+import BatchTransactionProcessor from '../src/transaction/batch-transaction-processor';
+import TransactionProcessor from '../src/transaction/transaction-processor';
+import TransactionFilterer from '../src/transaction/transaction-filterer';
+
+// Create a reusable mock for isFeatureEnabled
+const originalIsFeatureEnabled = config.isFeatureEnabled;
+const mockIsFeatureEnabled = jest.spyOn(config, 'isFeatureEnabled');
+
+// Default to having rerunMissedTransactions off for most tests
+mockIsFeatureEnabled.mockImplementation((feature: string) => {
+  if (feature === 'rerunMissedTransactions') return false;
+  return originalIsFeatureEnabled(feature);
+});
 
 describe('ActualAiService', () => {
   let sut: ActualAiService;
@@ -17,34 +34,69 @@ describe('ActualAiService', () => {
   let inMemoryApiService: InMemoryActualApiService;
   let mockedLlmService: MockedLlmService;
   let mockedPromptGenerator: MockedPromptGenerator;
-  let mockedManualPromptGenerator: MockedPromptGenerator;
-  let syncAccountsBeforeClassify = false;
+  let notesMigrator: NotesMigratorI;
   const GUESSED_TAG = '#actual-ai';
   const NOT_GUESSED_TAG = '#actual-ai-miss';
   const OVERRIDE_TAG = '#actual-ai-override'
 
   beforeEach(() => {
+    // Reset mock implementation before each test
+    mockIsFeatureEnabled.mockImplementation((feature: string) => {
+      if (feature === 'rerunMissedTransactions') return false;
+      return originalIsFeatureEnabled(feature);
+    });
+
     inMemoryApiService = new InMemoryActualApiService();
     mockedLlmService = new MockedLlmService();
     mockedPromptGenerator = new MockedPromptGenerator();
-    mockedManualPromptGenerator = new MockedPromptGenerator();
-    const categoryGroups: APICategoryGroupEntity[] = GivenActualData.createSampleCategoryGroups();
-    const categories: APICategoryEntity[] = GivenActualData.createSampleCategories();
-    const payees: APIPayeeEntity[] = GivenActualData.createSamplePayees();
-    const accounts: APIAccountEntity[] = GivenActualData.createSampleAccounts();
-    transactionService = new TransactionService(
+    const tagService = new TagService(NOT_GUESSED_TAG, GUESSED_TAG);
+    const ruleMatchStrategy = new RuleMatchStrategy(inMemoryApiService, tagService);
+    const existingCategoryStrategy = new ExistingCategoryStrategy(
+      inMemoryApiService,
+      tagService,
+    );
+    const categorySuggester = new CategorySuggester(
+      inMemoryApiService,
+      new CategorySuggestionOptimizer(new SimilarityCalculator()),
+      tagService,
+    );
+    const categoryGroups = GivenActualData.createSampleCategoryGroups();
+    const categories = GivenActualData.createSampleCategories();
+    const payees = GivenActualData.createSamplePayees();
+    const accounts = GivenActualData.createSampleAccounts();
+    const rules = GivenActualData.createSampleRules();
+
+    const transactionProcessor = new TransactionProcessor(
       inMemoryApiService,
       mockedLlmService,
       mockedPromptGenerator,
-      mockedManualPromptGenerator,
-      NOT_GUESSED_TAG,
-      GUESSED_TAG,
-      OVERRIDE_TAG,
+      tagService,
+      [ruleMatchStrategy, existingCategoryStrategy, new NewCategoryStrategy()],
     );
+
+    const batchTransactionProcessor = new BatchTransactionProcessor(
+      transactionProcessor,
+      20,
+    );
+
+    transactionService = new TransactionService(
+      inMemoryApiService,
+      categorySuggester,
+      batchTransactionProcessor,
+      new TransactionFilterer(tagService),
+      false,
+    );
+
     inMemoryApiService.setCategoryGroups(categoryGroups);
     inMemoryApiService.setCategories(categories);
     inMemoryApiService.setPayees(payees);
     inMemoryApiService.setAccounts(accounts);
+    inMemoryApiService.setRules(rules);
+    notesMigrator = new NotesMigrator(inMemoryApiService, tagService);
+  });
+
+  afterEach(() => {
+    mockIsFeatureEnabled.mockReset();
   });
 
   it('It should assign a category to transaction', async () => {
@@ -62,7 +114,7 @@ describe('ActualAiService', () => {
     sut = new ActualAiService(
       transactionService,
       inMemoryApiService,
-      syncAccountsBeforeClassify,
+      notesMigrator,
     );
     await sut.classify();
 
@@ -80,13 +132,16 @@ describe('ActualAiService', () => {
       'Carrefour XXXX1234567 822-307-2000',
     );
     inMemoryApiService.setTransactions([transaction]);
-    mockedLlmService.setGuess(`I think that the category id will be ${GivenActualData.CATEGORY_GROCERIES}`);
+    mockedLlmService.setUnifiedResponse({
+      type: 'existing',
+      categoryId: GivenActualData.CATEGORY_GROCERIES,
+    });
 
     // Act
     sut = new ActualAiService(
       transactionService,
       inMemoryApiService,
-      syncAccountsBeforeClassify,
+      notesMigrator,
     );
     await sut.classify();
 
@@ -112,7 +167,7 @@ describe('ActualAiService', () => {
     sut = new ActualAiService(
       transactionService,
       inMemoryApiService,
-      syncAccountsBeforeClassify,
+      notesMigrator,
     );
     await sut.classify();
 
@@ -136,7 +191,7 @@ describe('ActualAiService', () => {
     sut = new ActualAiService(
       transactionService,
       inMemoryApiService,
-      syncAccountsBeforeClassify,
+      notesMigrator,
     );
     await sut.classify();
 
@@ -160,7 +215,7 @@ describe('ActualAiService', () => {
     sut = new ActualAiService(
       transactionService,
       inMemoryApiService,
-      syncAccountsBeforeClassify,
+      notesMigrator,
     );
     await sut.classify();
 
@@ -183,7 +238,7 @@ describe('ActualAiService', () => {
     sut = new ActualAiService(
       transactionService,
       inMemoryApiService,
-      syncAccountsBeforeClassify,
+      notesMigrator,
     );
     await sut.classify();
 
@@ -203,11 +258,17 @@ describe('ActualAiService', () => {
     inMemoryApiService.setTransactions([transaction]);
     mockedLlmService.setGuess(GivenActualData.CATEGORY_GROCERIES);
 
+    // Ensure rerunMissedTransactions is false for this test
+    mockIsFeatureEnabled.mockImplementation((feature: string) => {
+      if (feature === 'rerunMissedTransactions') return false;
+      return originalIsFeatureEnabled(feature);
+    });
+
     // Act
     sut = new ActualAiService(
       transactionService,
       inMemoryApiService,
-      syncAccountsBeforeClassify,
+      notesMigrator,
     );
     await sut.classify();
 
@@ -234,7 +295,7 @@ describe('ActualAiService', () => {
     sut = new ActualAiService(
       transactionService,
       inMemoryApiService,
-      syncAccountsBeforeClassify,
+      notesMigrator,
     );
     await sut.classify();
 
@@ -249,15 +310,15 @@ describe('ActualAiService', () => {
       '1',
       -123,
       'Carrefour 1235',
-      'Carrefour XXXX1234567 822-307-2000 | actual-ai could not guess this category',
+      'Carrefour XXXX1234567 822-307-2000 #actual-ai-miss',
     );
     const transactionGuessed = GivenActualData.createTransaction(
       '2',
       -123,
       'Carrefour 1234',
-      'Carrefour XXXX1234567 822-307-3000 | actual-ai guessed this category',
+      'Carrefour XXXX1234567 822-307-3000 actual-ai guessed this category',
       undefined,
-      '1',
+      GivenActualData.ACCOUNT_MAIN,
       '2021-01-01',
       false,
       GivenActualData.CATEGORY_GROCERIES,
@@ -268,7 +329,7 @@ describe('ActualAiService', () => {
     sut = new ActualAiService(
       transactionService,
       inMemoryApiService,
-      syncAccountsBeforeClassify,
+      notesMigrator,
     );
     await sut.classify();
 
@@ -298,7 +359,7 @@ describe('ActualAiService', () => {
     sut = new ActualAiService(
       transactionService,
       inMemoryApiService,
-      syncAccountsBeforeClassify,
+      notesMigrator,
     );
     await sut.classify();
 
@@ -340,11 +401,17 @@ describe('ActualAiService', () => {
     inMemoryApiService.setTransactions([transaction1, transaction2, transaction3]);
     mockedLlmService.setGuess(GivenActualData.CATEGORY_GROCERIES);
 
+    // Ensure rerunMissedTransactions is false for this test
+    mockIsFeatureEnabled.mockImplementation((feature: string) => {
+      if (feature === 'rerunMissedTransactions') return false;
+      return originalIsFeatureEnabled(feature);
+    });
+
     // Act
     sut = new ActualAiService(
       transactionService,
       inMemoryApiService,
-      syncAccountsBeforeClassify,
+      notesMigrator,
     );
     await sut.classify();
 
@@ -358,17 +425,111 @@ describe('ActualAiService', () => {
 
   it('It should run bank sync when flag is set', async () => {
     // Arrange
-    syncAccountsBeforeClassify = true;
+    mockIsFeatureEnabled.mockImplementation((feature: string) => {
+      if (feature === 'syncAccountsBeforeClassify') return true;
+      if (feature === 'rerunMissedTransactions') return false;
+      return originalIsFeatureEnabled(feature);
+    });
 
     // Act
     sut = new ActualAiService(
       transactionService,
       inMemoryApiService,
-      syncAccountsBeforeClassify,
+      notesMigrator,
     );
     await sut.classify();
 
     // Assert
     expect(inMemoryApiService.getWasBankSyncRan()).toBe(true);
+  });
+
+  // Add a new test for when rerunMissedTransactions is true
+  it('It should process transaction with missed tag when rerunMissedTransactions is true', async () => {
+    // Arrange
+    const transaction = GivenActualData.createTransaction(
+      '1',
+      -123,
+      'Carrefour 1234',
+      'Carrefour XXXX1234567 822-307-2000 | #actual-ai-miss',
+    );
+    inMemoryApiService.setTransactions([transaction]);
+    mockedLlmService.setGuess(GivenActualData.CATEGORY_GROCERIES);
+
+    // Set rerunMissedTransactions to true for this test
+    mockIsFeatureEnabled.mockImplementation((feature: string) => {
+      if (feature === 'rerunMissedTransactions') return true;
+      return originalIsFeatureEnabled(feature);
+    });
+
+    // Act
+    sut = new ActualAiService(
+      transactionService,
+      inMemoryApiService,
+      notesMigrator,
+    );
+    await sut.classify();
+
+    // Assert
+    const updatedTransactions = await inMemoryApiService.getTransactions();
+    expect(updatedTransactions[0].category).toBe(GivenActualData.CATEGORY_GROCERIES);
+    expect(updatedTransactions[0].notes).toContain(GUESSED_TAG);
+  });
+
+  it('should create a new category and group when LLM suggests a new one', async () => {
+    // Arrange
+    const transaction = GivenActualData.createTransaction(
+      'new-cat-txn',
+      -50,
+      'New Service Inc.',
+      'Payment for new service',
+    );
+    inMemoryApiService.setTransactions([transaction]);
+
+    const newCategorySuggestion: CategorySuggestion = {
+      name: 'Digital Services',
+      groupName: 'Tech Expenses',
+      groupIsNew: true,
+    };
+
+    mockedLlmService.setUnifiedResponse({
+      type: 'new',
+      newCategory: newCategorySuggestion,
+    });
+
+    // Enable suggestNewCategories feature for this test
+    mockIsFeatureEnabled.mockImplementation((feature: string) => {
+      if (feature === 'suggestNewCategories') return true;
+      if (feature === 'rerunMissedTransactions') return false;
+      return originalIsFeatureEnabled(feature);
+    });
+
+    const createGroupSpy = jest.spyOn(inMemoryApiService, 'createCategoryGroup');
+    const createCategorySpy = jest.spyOn(inMemoryApiService, 'createCategory');
+
+    sut = new ActualAiService(
+      transactionService,
+      inMemoryApiService,
+      notesMigrator,
+    );
+
+    // Act
+    await sut.classify();
+
+    // Assert
+    const updatedTransactions = await inMemoryApiService.getTransactions();
+    // Explicitly type the spy results to avoid 'any' type issues
+    const createGroupResult = await createGroupSpy.mock.results[0].value as string;
+    const createCategoryResult = await createCategorySpy.mock.results[0].value as string;
+    const newGroupId = createGroupResult;
+    const newCategoryId = createCategoryResult;
+
+    expect(createGroupSpy).toHaveBeenCalledWith(newCategorySuggestion.groupName);
+    expect(createCategorySpy).toHaveBeenCalledWith(newCategorySuggestion.name, newGroupId);
+    expect(updatedTransactions[0].category).toBe(newCategoryId);
+    expect(updatedTransactions[0].notes).toContain(GUESSED_TAG);
+
+    // Clean up spies
+    createGroupSpy.mockRestore();
+    createCategorySpy.mockRestore();
   });
 });
