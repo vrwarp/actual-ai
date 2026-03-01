@@ -10,8 +10,8 @@ USER node
 
 WORKDIR /opt/node_app
 
-COPY --chown=node:node package.json package-lock.json* ./
-RUN npm ci && npm cache clean --force
+COPY --chown=node:node package.json package-lock.json* patch-api.js* ./
+RUN npm ci && npm cache clean --force && node patch-api.js
 ENV PATH=/opt/node_app/node_modules/.bin:$PATH
 
 WORKDIR /opt/node_app/app

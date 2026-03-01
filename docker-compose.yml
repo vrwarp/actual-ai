@@ -5,7 +5,7 @@ services:
       context: .
       args:
         - NODE_ENV=development
-    command: npm run dev-docker
+    command: sh -c "node patch-api.js && npm run dev-docker"
     env_file:
       - .env
     volumes:

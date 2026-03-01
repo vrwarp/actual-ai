@@ -5,9 +5,9 @@
   "main": "app.js",
   "scripts": {
     "build": "tsc",
-    "dev-docker": "../node_modules/.bin/nodemon --exec \"npm run lint && ts-node ./app.ts\"",
+    "dev-docker": "../node_modules/.bin/nodemon --exec \"ts-node ./app.ts\"",
     "dev": "nodemon --exec \"npm run lint && ts-node ./app.ts\"",
-    "lint": "eslint --fix **/*.ts",
+    "lint": "eslint --fix \"app.ts\" \"src/**/*.ts\"",
     "prod": "node dist/app.js",
     "test": "jest"
   },
@@ -15,7 +15,7 @@
   "author": "Szymon Sakowicz <info@sakowi.cz>",
   "license": "MIT",
   "dependencies": {
-    "@actual-app/api": "^26.2.0",
+    "@actual-app/api": "^26.2.1",
     "@ai-sdk/anthropic": "^1.2.9",
     "@ai-sdk/google": "^1.2.12",
     "@ai-sdk/groq": "^1.2.7",
