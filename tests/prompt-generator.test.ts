@@ -75,7 +75,7 @@ describe('PromptGenerator', () => {
       categoryGroups: safeCategoryGroups,
       amount: Math.abs(transaction.amount),
       type: transaction.amount > 0 ? 'Income' : 'Outcome',
-      description: transaction.notes ?? '',
+      description: tagService.clearPreviousTags(transaction.notes ?? ''),
       payee: payees.find((p) => p.id === transaction.payee)?.name ?? '',
       importedPayee: transaction.imported_payee ?? '',
       date: transaction.date ?? '',
@@ -184,7 +184,7 @@ ANSWER BY A CATEGORY ID - DO NOT CREATE ENTIRE SENTENCE - DO NOT WRITE CATEGORY 
       '2',
       -500,
       'Example Payee',
-      'Example notes',
+      'Example notes #actual-ai-override',
       GivenActualData.PAYEE_AIRBNB, // Using existing payee ID
       undefined,
       '2021-01-02',
