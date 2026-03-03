@@ -7,6 +7,7 @@ import {
 import PromptTemplateException from './exceptions/prompt-template-exception';
 import { isToolEnabled } from './config';
 import { transformRulesToDescriptions } from './utils/rule-utils';
+import TagService from './transaction/tag-service';
 
 /**
  * Service responsible for generating the prompt string sent to the LLM.
@@ -15,15 +16,20 @@ import { transformRulesToDescriptions } from './utils/rule-utils';
 class PromptGenerator implements PromptGeneratorI {
   private readonly promptTemplate: string;
 
+  private readonly tagService: TagService;
+
   /**
    * Constructs a PromptGenerator.
    *
    * @param promptTemplate - The raw Handlebars template string to use for generation.
+   * @param tagService - Service to clean tags from notes.
    */
   constructor(
     promptTemplate: string,
+    tagService: TagService,
   ) {
     this.promptTemplate = promptTemplate;
+    this.tagService = tagService;
   }
 
   /**
@@ -78,7 +84,7 @@ class PromptGenerator implements PromptGeneratorI {
       return {
         amount: Math.abs(example.amount),
         type: example.amount > 0 ? 'Income' : 'Outcome',
-        description: example.notes ?? '',
+        description: this.tagService.clearPreviousTags(example.notes ?? ''),
         payee: examplePayee ?? '',
         importedPayee: example.imported_payee ?? '',
         category: exampleCategory?.name ?? 'Unknown Category',
@@ -94,7 +100,7 @@ class PromptGenerator implements PromptGeneratorI {
         examples: examplesDescription,
         amount: Math.abs(transaction.amount),
         type: transaction.amount > 0 ? 'Income' : 'Outcome',
-        description: transaction.notes ?? '',
+        description: this.tagService.clearPreviousTags(transaction.notes ?? ''),
         payee: payeeName ?? '',
         importedPayee: transaction.imported_payee ?? '',
         date: transaction.date ?? '',

@@ -92,8 +92,11 @@ const actualApiService = new ActualApiService(
   isDryRun,
 );
 
+const tagService = new TagService(notGuessedTag, guessedTag, manualOverrideTag);
+
 const promptGenerator = new PromptGenerator(
   promptTemplate,
+  tagService,
 );
 
 const llmService = new LlmService(
@@ -102,8 +105,6 @@ const llmService = new LlmService(
   isFeatureEnabled('disableRateLimiter'),
   toolService,
 );
-
-const tagService = new TagService(notGuessedTag, guessedTag, manualOverrideTag);
 
 const ruleMatchStrategy = new RuleMatchStrategy(actualApiService, tagService);
 const existingCategoryStrategy = new ExistingCategoryStrategy(
