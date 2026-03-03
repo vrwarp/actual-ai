@@ -62,7 +62,7 @@ function parseLlmResponse(text: string): UnifiedResponse {
         };
       }
 
-      throw new Error('Response is neither valid JSON nor simple ID');
+      throw new Error('Invalid response format from LLM');
     }
 
     if (parsed.type === 'existing' && parsed.categoryId) {
