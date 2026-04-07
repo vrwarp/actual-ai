@@ -8,6 +8,8 @@ import {
 } from '../types';
 import TransactionProcessor from './transaction-processor';
 
+const BATCH_DELAY_MS = 2000;
+
 /**
  * Service to process a list of transactions in batches.
  *
@@ -94,9 +96,9 @@ class BatchTransactionProcessor {
 
       // Add a small delay between batches to avoid overwhelming the API
       if (batchEnd < uncategorizedTransactions.length) {
-        console.log('Pausing for 2 seconds before next batch...');
+        console.log(`Pausing for ${BATCH_DELAY_MS / 1000} seconds before next batch...`);
         await new Promise((resolve) => {
-          setTimeout(resolve, 2000);
+          setTimeout(resolve, BATCH_DELAY_MS);
         });
       }
     }
