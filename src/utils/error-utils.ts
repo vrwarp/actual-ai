@@ -15,7 +15,7 @@ interface RateLimitError extends Error {
  */
 export const isRateLimitError = (error: unknown): boolean => {
   if (!error) return false;
-  const errorStr = error instanceof Error ? error.message : JSON.stringify(error);
+  const errorStr = formatError(error);
   return errorStr.toLowerCase().includes('rate limit')
     || errorStr.toLowerCase().includes('rate_limit')
     || errorStr.toLowerCase().includes('too many requests')
@@ -75,18 +75,40 @@ export const extractRetryAfterMs = (error: unknown): number | undefined => {
 /**
  * Formats an error object into a readable string.
  *
+ * To prevent accidental data exposure (e.g., auth headers in request objects),
+ * it only extracts specific safe fields from unknown objects.
+ *
  * @param error - The error to format.
  * @returns A string representation of the error.
  */
 export const formatError = (error: unknown): string => {
   if (error instanceof Error) return error.message;
+
   if (typeof error === 'object' && error !== null) {
-    try {
-      return JSON.stringify(error);
-    } catch {
-      return '[object Object]';
+    const safeFields: Record<string, unknown> = {};
+    const keysToExtract = ['message', 'name', 'code', 'status', 'statusCode'];
+
+    keysToExtract.forEach((key) => {
+      if (key in error) {
+        safeFields[key] = (error as Record<string, unknown>)[key];
+      }
+    });
+
+    // If it's an object with a nested error message (common in some APIs)
+    if ('error' in error && typeof (error as { error: unknown }).error === 'string') {
+      safeFields.error = (error as { error: string }).error;
     }
+
+    if (Object.keys(safeFields).length > 0) {
+      try {
+        return JSON.stringify(safeFields);
+      } catch {
+        return '[object Object]';
+      }
+    }
+    return '[object Object]';
   }
+
   return String(error);
 };
 

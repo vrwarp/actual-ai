@@ -120,5 +120,21 @@ describe('error-utils', () => {
     it('should format null', () => {
         expect(formatError(null)).toBe('null');
     });
+
+    it('should NOT leak sensitive fields in unknown objects', () => {
+      const errorWithSecret = {
+        message: 'Something went wrong',
+        secret: 'api-key-123',
+        config: {
+          headers: {
+            Authorization: 'Bearer token',
+          },
+        },
+      };
+      const formatted = formatError(errorWithSecret);
+      expect(formatted).not.toContain('api-key-123');
+      expect(formatted).not.toContain('Bearer token');
+      expect(formatted).toContain('Something went wrong');
+    });
   });
 });
