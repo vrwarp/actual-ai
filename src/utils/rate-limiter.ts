@@ -148,7 +148,9 @@ class RateLimiter {
       // Type guard for rate limit errors
       const rateLimitError = error as Partial<RateLimitError>;
       if ('statusCode' in error) errorInfo.statusCode = rateLimitError.statusCode;
-      if ('responseHeaders' in error) errorInfo.headers = rateLimitError.responseHeaders;
+      if ('responseHeaders' in error && rateLimitError.responseHeaders) {
+        errorInfo.headers = this.sanitizeHeaders(rateLimitError.responseHeaders);
+      }
     }
 
     return {
@@ -158,6 +160,33 @@ class RateLimiter {
       requestsInLastMinute: this.requestCounts.get(provider) ?? 0,
       maxRequestsPerMinute: this.maxRequestsPerMinute.get(provider) ?? 'No limit set',
     };
+  }
+
+  /**
+   * Redacts sensitive information from headers to prevent data exposure in logs.
+   *
+   * @param headers - The original headers.
+   * @returns A new object with sensitive headers redacted.
+   */
+  private sanitizeHeaders(headers: Record<string, string>): Record<string, string> {
+    const sensitiveHeaders = [
+      'authorization',
+      'cookie',
+      'set-cookie',
+      'x-api-key',
+      'proxy-authorization',
+      'api-key',
+    ];
+
+    const sanitized: Record<string, string> = { ...headers };
+
+    Object.keys(sanitized).forEach((key) => {
+      if (sensitiveHeaders.includes(key.toLowerCase())) {
+        sanitized[key] = '[REDACTED]';
+      }
+    });
+
+    return sanitized;
   }
 
   /**
