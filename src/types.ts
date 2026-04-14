@@ -150,18 +150,6 @@ export interface RuleDescription {
 }
 
 /**
- * Structure for a suggested new category.
- */
-export interface CategorySuggestion {
-  /** The name of the suggested category. */
-  name: string;
-  /** The name of the group it belongs to. */
-  groupName: string;
-  /** Whether the group is new or existing. */
-  groupIsNew: boolean;
-}
-
-/**
  * A unified response structure from the LLM.
  * Can represent an existing category match, a new category suggestion, or a rule match.
  */
@@ -173,7 +161,14 @@ export interface UnifiedResponse {
   /** The name of the matched rule (if rule). */
   ruleName?: string;
   /** Details of the new category (if new). */
-  newCategory?: CategorySuggestion;
+  newCategory?: {
+    /** The name of the suggested category. */
+    name: string;
+    /** The name of the group it belongs to. */
+    groupName: string;
+    /** Whether the group is new or existing. */
+    groupIsNew: boolean;
+  };
 }
 
 /**

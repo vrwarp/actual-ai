@@ -7,7 +7,7 @@ import GivenActualData from './test-doubles/given/given-actual-data';
 import * as config from '../src/config';
 import SimilarityCalculator from '../src/similarity-calculator';
 import CategorySuggestionOptimizer from '../src/category-suggestion-optimizer';
-import { CategorySuggestion, NotesMigratorI } from '../src/types';
+import { NotesMigratorI } from '../src/types';
 import NotesMigrator from '../src/transaction/notes-migrator';
 import TagService from '../src/transaction/tag-service';
 import RuleMatchStrategy from '../src/transaction/processing-strategy/rule-match-strategy';
@@ -485,7 +485,7 @@ describe('ActualAiService', () => {
     );
     inMemoryApiService.setTransactions([transaction]);
 
-    const newCategorySuggestion: CategorySuggestion = {
+    const newCategorySuggestion = {
       name: 'Digital Services',
       groupName: 'Tech Expenses',
       groupIsNew: true,
