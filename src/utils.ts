@@ -11,10 +11,13 @@ async function suppressConsoleLogsAsync(callback: () => Promise<void>) {
   const originalConsoleLog = console.log;
   // eslint-disable-next-line @typescript-eslint/no-empty-function
   console.log = () => {};
-  const result = await callback();
-  console.log = originalConsoleLog;
 
-  return result;
+  try {
+    const result = await callback();
+    return result;
+  } finally {
+    console.log = originalConsoleLog;
+  }
 }
 
 export default suppressConsoleLogsAsync;
