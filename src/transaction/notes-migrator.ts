@@ -1,6 +1,7 @@
 import type {
   ActualApiServiceI, NotesMigratorI,
 } from '../types';
+import { mask } from '../utils/log-utils';
 import TagService from './tag-service';
 
 const LEGACY_NOTES_NOT_GUESSED = 'actual-ai could not guess this category';
@@ -51,7 +52,7 @@ class NotesMigrator implements NotesMigratorI {
 
     for (let i = 0; i < transactionsToMigrate.length; i++) {
       const transaction = transactionsToMigrate[i];
-      console.log(`${i + 1}/${transactionsToMigrate.length} Migrating transaction ${transaction.imported_payee} / ${transaction.notes} / ${transaction.amount}`);
+      console.log(`${i + 1}/${transactionsToMigrate.length} Migrating transaction ${mask(transaction.imported_payee)} / ${mask(transaction.notes)} / ${mask(transaction.amount)}`);
 
       const baseNotes = this.tagService.clearPreviousTags(transaction.notes ?? '');
       let newNotes = baseNotes;
