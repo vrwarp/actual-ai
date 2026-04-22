@@ -106,6 +106,12 @@ function registerStandardFeatures() {
     defaultValue: false,
     description: 'Disable Rate Limiter',
   };
+
+  features.disableMasking = {
+    enabled: enabledFeatures.includes('disableMasking') || process.env.DISABLE_LOG_MASKING === 'true',
+    defaultValue: false,
+    description: 'Disable masking of sensitive information in logs',
+  };
 }
 
 /**
