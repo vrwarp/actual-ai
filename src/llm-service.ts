@@ -5,6 +5,7 @@ import {
 import RateLimiter from './utils/rate-limiter';
 import { PROVIDER_LIMITS } from './utils/provider-limits';
 import { parseLlmResponse } from './utils/json-utils';
+import { Logger } from './utils/log-utils';
 
 /**
  * Service responsible for interacting with the Large Language Model (LLM).
@@ -46,9 +47,9 @@ export default class LlmService implements LlmServiceI {
     const limits = PROVIDER_LIMITS[this.provider];
     if (!isRateLimitDisabled && limits) {
       this.rateLimiter.setProviderLimit(this.provider, limits.requestsPerMinute);
-      console.log(`Set ${this.provider} rate limits: ${limits.requestsPerMinute} requests/minute, ${limits.tokensPerMinute} tokens/minute`);
+      Logger.info(`Set ${this.provider} rate limits: ${limits.requestsPerMinute} requests/minute, ${limits.tokensPerMinute} tokens/minute`);
     } else {
-      console.warn(`No rate limits configured for provider: ${this.provider} or Rate Limiter is disabled`);
+      Logger.warn(`No rate limits configured for provider: ${this.provider} or Rate Limiter is disabled`);
     }
   }
 
@@ -64,7 +65,7 @@ export default class LlmService implements LlmServiceI {
     }
 
     try {
-      console.log(`Performing web search for: "${query}"`);
+      Logger.info(`Performing web search for: "${query}"`);
       if ('search' in this.toolService) {
         type SearchFunction = (q: string) => Promise<string>;
         const searchFn = this.toolService.search as SearchFunction;
@@ -72,7 +73,7 @@ export default class LlmService implements LlmServiceI {
       }
       return 'Search tool is not available.';
     } catch (error) {
-      console.error('Error during web search:', error);
+      Logger.error('Error during web search:', error);
       return `Error performing search: ${error instanceof Error ? error.message : String(error)}`;
     }
   }
@@ -88,13 +89,13 @@ export default class LlmService implements LlmServiceI {
    */
   public async ask(prompt: string): Promise<UnifiedResponse> {
     try {
-      console.log(`Making LLM request to ${this.provider}${this.isFallbackMode ? ' (fallback mode)' : ''}`);
+      Logger.info(`Making LLM request to ${this.provider}${this.isFallbackMode ? ' (fallback mode)' : ''}`);
 
       if (this.isFallbackMode) {
         const response = await this.askUsingFallbackModel(prompt);
         const uuidRegex = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
         if (!uuidRegex.test(response)) {
-          console.warn('If you are using ollama and you see it all the time, check the ollama api logs.'
+          Logger.warn('If you are using ollama and you see it all the time, check the ollama api logs.'
               + 'Maybe you need to use bigger context window');
           throw new Error(`Could not foud category in LLM response: ${response}`);
         }
@@ -116,13 +117,13 @@ export default class LlmService implements LlmServiceI {
 
           return parseLlmResponse(text);
         } catch (error) {
-          console.error('LLM response validation failed:', error);
+          Logger.error('LLM response validation failed:', error);
           throw new Error('Invalid response format from LLM');
         }
       });
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
-      console.error(`Error during LLM request to ${this.provider}: ${errorMsg}`);
+      Logger.error(`Error during LLM request to ${this.provider}: ${errorMsg}`);
       throw error;
     }
   }
@@ -138,7 +139,7 @@ export default class LlmService implements LlmServiceI {
     return this.rateLimiter.executeWithRateLimiting(
       this.provider,
       async () => {
-        console.log(`Sending text generation request to ${this.provider}`);
+        Logger.info(`Sending text generation request to ${this.provider}`);
         const { text } = await generateText({
           model: this.model,
           prompt,

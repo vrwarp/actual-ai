@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { tool, Tool } from 'ai';
 import { ToolServiceI } from '../types';
 import { getEnabledTools } from '../config';
+import { Logger } from './log-utils';
 import FreeWebSearchService from './free-web-search-service';
 
 interface SearchResult {
@@ -56,7 +57,7 @@ export default class ToolService implements ToolServiceI {
         }),
         execute: async ({ query }: { query: string }): Promise<string> => {
           if (!this.valueSerpApiKey) return 'Search unavailable';
-          console.log(`Performing web search for ${query}`);
+          Logger.info(`Performing web search for ${query}`);
           const results = await this.performSearch(query);
           return this.formatSearchResults(results);
         },
@@ -73,12 +74,12 @@ export default class ToolService implements ToolServiceI {
           ),
         }),
         execute: async ({ query }: { query: string }): Promise<string> => {
-          console.log(`Performing free web search for ${query}`);
+          Logger.info(`Performing free web search for ${query}`);
           try {
             const results = await this.freeWebSearchService.search(query);
             return this.freeWebSearchService.formatSearchResults(results);
           } catch (error) {
-            console.error('Error during free web search:', error);
+            Logger.error('Error during free web search:', error);
             return 'Web search failed. Please try again later.';
           }
         },

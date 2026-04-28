@@ -2,6 +2,7 @@ import { TransactionEntity } from '@actual-app/api/@types/loot-core/src/types/mo
 import { APIAccountEntity } from '@actual-app/api/@types/loot-core/src/server/api-models';
 import { isFeatureEnabled } from '../config';
 import TagService from './tag-service';
+import { Logger } from '../utils/log-utils';
 
 /**
  * Service to filter transactions based on various criteria.
@@ -37,7 +38,7 @@ class TransactionFilterer {
     const excludedTransactions = transactions.filter((transaction) => !filterFn(transaction));
 
     if (excludedTransactions.length > 0) {
-      console.log(`${logMessage} - Excluded ${excludedTransactions.length} transactions`);
+      Logger.info(`${logMessage} - Excluded ${excludedTransactions.length} transactions`);
     }
 
     return transactions.filter((transaction) => filterFn(transaction));
@@ -63,12 +64,12 @@ class TransactionFilterer {
     transactions: TransactionEntity[],
     accounts: APIAccountEntity[],
   ): TransactionEntity[] {
-    console.log(`All transactions count: ${transactions.length}`);
-    console.log(`All accounts: ${accounts.length}`);
+    Logger.info(`All transactions count: ${transactions.length}`);
+    Logger.info(`All accounts: ${accounts.length}`);
 
     const accountsToSkip = accounts?.filter((account) => account.offbudget)
       .map((account) => account.id) ?? [];
-    console.log(`Accounts off budget: ${accountsToSkip.length}`);
+    Logger.info(`Accounts off budget: ${accountsToSkip.length}`);
 
     let filteredTransactions = transactions;
 
@@ -116,7 +117,7 @@ class TransactionFilterer {
       'Account is not budget',
     );
 
-    console.log(`Found ${filteredTransactions.length} uncategorized transactions`);
+    Logger.info(`Found ${filteredTransactions.length} uncategorized transactions`);
 
     return filteredTransactions;
   }

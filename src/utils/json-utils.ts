@@ -1,4 +1,5 @@
 import { UnifiedResponse } from '../types';
+import { Logger } from './log-utils';
 
 /**
  * Cleans raw text output from an LLM to extract the JSON payload.
@@ -44,7 +45,7 @@ function cleanJsonResponse(text: string): string {
  */
 function parseLlmResponse(text: string): UnifiedResponse {
   const cleanedText = cleanJsonResponse(text);
-  console.log('Cleaned LLM response:', cleanedText);
+  Logger.info('Cleaned LLM response:', cleanedText);
 
   try {
     let parsed: Partial<UnifiedResponse>;
@@ -55,7 +56,7 @@ function parseLlmResponse(text: string): UnifiedResponse {
       const trimmedText = cleanedText.trim().replace(/^"|"$/g, '');
 
       if (/^[a-zA-Z0-9_-]+$/.test(trimmedText)) {
-        console.log(`LLM returned simple ID: "${trimmedText}"`);
+        Logger.info(`LLM returned simple ID: "${trimmedText}"`);
         return {
           type: 'existing',
           categoryId: trimmedText,
@@ -85,7 +86,7 @@ function parseLlmResponse(text: string): UnifiedResponse {
     // If the response doesn't match expected format but has a categoryId,
     // default to treating it as an existing category
     if (parsed.categoryId) {
-      console.log('LLM response missing type but has categoryId, treating as existing category');
+      Logger.info('LLM response missing type but has categoryId, treating as existing category');
       return {
         type: 'existing',
         categoryId: parsed.categoryId,
@@ -98,10 +99,10 @@ function parseLlmResponse(text: string): UnifiedResponse {
       };
     }
 
-    console.error('Invalid response structure from LLM:', parsed);
+    Logger.error('Invalid response structure from LLM:', parsed);
     throw new Error('Invalid response format from LLM');
   } catch (parseError) {
-    console.error('Failed to parse LLM response:', cleanedText, parseError);
+    Logger.error('Failed to parse LLM response:', cleanedText, parseError);
     throw new Error('Invalid response format from LLM');
   }
 }

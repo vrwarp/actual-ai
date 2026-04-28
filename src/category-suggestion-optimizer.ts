@@ -2,6 +2,7 @@ import type {
   TransactionEntity,
 } from '@actual-app/api/@types/loot-core/src/types/models';
 import SimilarityCalculator from './similarity-calculator';
+import { Logger } from './utils/log-utils';
 
 /**
  * Service responsible for optimizing category suggestions by merging similar categories.
@@ -44,7 +45,7 @@ class CategorySuggestionOptimizer {
         groupId?: string;
         transactions: TransactionEntity[];
     }> {
-    console.log('Optimizing category suggestions...');
+    Logger.info('Optimizing category suggestions...');
 
     // Convert suggestions to array.
     const suggestions = Array.from(suggestedCategories.values());
@@ -114,10 +115,10 @@ class CategorySuggestionOptimizer {
       });
     });
 
-    console.log(`Optimized from ${suggestions.length} to ${optimizedCategories.size} categories`);
+    Logger.info(`Optimized from ${suggestions.length} to ${optimizedCategories.size} categories`);
     optimizedCategories.forEach((category) => {
       if (category.originalNames.length > 1) {
-        console.log(`Merged categories ${category.originalNames.join(', ')} into "${category.name}"`);
+        Logger.info(`Merged categories ${category.originalNames.join(', ')} into "${category.name}"`);
       }
     });
 

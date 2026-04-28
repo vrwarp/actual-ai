@@ -4,6 +4,7 @@ import {
 import suppressConsoleLogsAsync from './utils';
 import { formatError } from './utils/error-utils';
 import { isFeatureEnabled } from './config';
+import { Logger } from './utils/log-utils';
 
 /**
  * Service responsible for orchestrating the AI classification process.
@@ -42,7 +43,7 @@ class ActualAiService implements ActualAiServiceI {
    * @returns A promise that resolves when the classification process is complete.
    */
   public async classify() {
-    console.log('Starting classification process');
+    Logger.info('Starting classification process');
     let isBudgetOpen = false;
     try {
       await this.actualApiService.initializeApi();
@@ -53,7 +54,7 @@ class ActualAiService implements ActualAiServiceI {
           await this.syncAccounts();
         }
       } catch (error) {
-        console.error(
+        Logger.error(
           'Bank sync failed, continuing with existing transactions:',
           formatError(error),
         );
@@ -65,19 +66,19 @@ class ActualAiService implements ActualAiServiceI {
         await this.transactionService.processTransactions();
       } catch (error) {
         if (this.isRateLimitError(error)) {
-          console.error('Rate limit reached during transaction processing. Consider:');
-          console.error('1. Adjusting rate limits in provider-limits.ts');
-          console.error('2. Switching to a provider with higher limits');
-          console.error('3. Breaking your processing into smaller batches');
+          Logger.error('Rate limit reached during transaction processing. Consider:');
+          Logger.error('1. Adjusting rate limits in provider-limits.ts');
+          Logger.error('2. Switching to a provider with higher limits');
+          Logger.error('3. Breaking your processing into smaller batches');
         } else {
-          console.error(
+          Logger.error(
             'An error occurred during transaction processing:',
             formatError(error),
           );
         }
       }
     } catch (error) {
-      console.error(
+      Logger.error(
         'An error occurred:',
         formatError(error),
       );
@@ -87,7 +88,7 @@ class ActualAiService implements ActualAiServiceI {
           await this.actualApiService.shutdownApi();
         }
       } catch (shutdownError) {
-        console.error('Error during API shutdown:', formatError(shutdownError));
+        Logger.error('Error during API shutdown:', formatError(shutdownError));
       }
     }
   }
@@ -100,12 +101,12 @@ class ActualAiService implements ActualAiServiceI {
    * @returns A promise that resolves when the sync is complete.
    */
   async syncAccounts(): Promise<void> {
-    console.log('Syncing bank accounts');
+    Logger.info('Syncing bank accounts');
     try {
       await suppressConsoleLogsAsync(async () => this.actualApiService.runBankSync());
-      console.log('Bank accounts synced');
+      Logger.info('Bank accounts synced');
     } catch (error) {
-      console.error(
+      Logger.error(
         'Error syncing bank accounts:',
         formatError(error),
       );

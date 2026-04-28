@@ -7,6 +7,7 @@ import {
   APICategoryEntity, APICategoryGroupEntity,
 } from '../types';
 import TransactionProcessor from './transaction-processor';
+import { Logger } from '../utils/log-utils';
 
 const BATCH_DELAY_MS = 2000;
 
@@ -72,14 +73,14 @@ class BatchTransactionProcessor {
       batchStart += this.batchSize
     ) {
       const batchEnd = Math.min(batchStart + this.batchSize, uncategorizedTransactions.length);
-      console.log(`Processing batch ${batchStart / this.batchSize + 1} (transactions ${batchStart + 1}-${batchEnd})`);
+      Logger.info(`Processing batch ${batchStart / this.batchSize + 1} (transactions ${batchStart + 1}-${batchEnd})`);
 
       const batch = uncategorizedTransactions.slice(batchStart, batchEnd);
 
       await batch.reduce(async (previousPromise, transaction, batchIndex) => {
         await previousPromise;
         const globalIndex = batchStart + batchIndex;
-        console.log(
+        Logger.info(
           `${globalIndex + 1}/${uncategorizedTransactions.length} Processing transaction '${transaction.imported_payee}'`,
         );
 
@@ -96,7 +97,7 @@ class BatchTransactionProcessor {
 
       // Add a small delay between batches to avoid overwhelming the API
       if (batchEnd < uncategorizedTransactions.length) {
-        console.log(`Pausing for ${BATCH_DELAY_MS / 1000} seconds before next batch...`);
+        Logger.info(`Pausing for ${BATCH_DELAY_MS / 1000} seconds before next batch...`);
         await new Promise((resolve) => {
           setTimeout(resolve, BATCH_DELAY_MS);
         });

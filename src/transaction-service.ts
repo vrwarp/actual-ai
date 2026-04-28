@@ -9,6 +9,7 @@ import { isFeatureEnabled } from './config';
 import CategorySuggester from './transaction/category-suggester';
 import BatchTransactionProcessor from './transaction/batch-transaction-processor';
 import TransactionFilterer from './transaction/transaction-filterer';
+import { Logger } from './utils/log-utils';
 
 /**
  * Service responsible for the high-level orchestration of transaction processing.
@@ -61,9 +62,9 @@ class TransactionService implements TransactionServiceI {
    */
   async processTransactions(): Promise<void> {
     if (this.isDryRun) {
-      console.log('=== DRY RUN MODE ===');
-      console.log('No changes will be made to transactions or categories');
-      console.log('=====================');
+      Logger.info('=== DRY RUN MODE ===');
+      Logger.info('No changes will be made to transactions or categories');
+      Logger.info('=====================');
     }
 
     const [categoryGroups, categories, payees, transactions, accounts, rules] = await Promise.all([
@@ -74,8 +75,8 @@ class TransactionService implements TransactionServiceI {
       this.actualApiService.getAccounts(),
       this.actualApiService.getRules(),
     ]);
-    console.log(`Found ${rules.length} transaction categorization rules`);
-    console.log('rerunMissedTransactions', isFeatureEnabled('rerunMissedTransactions'));
+    Logger.info(`Found ${rules.length} transaction categorization rules`);
+    Logger.info('rerunMissedTransactions', isFeatureEnabled('rerunMissedTransactions'));
 
     const uncategorizedTransactions = this.transactionFilterer.filterUncategorized(
       transactions,
@@ -83,12 +84,12 @@ class TransactionService implements TransactionServiceI {
     );
 
     if (uncategorizedTransactions.length === 0) {
-      console.log('No uncategorized transactions to process');
+      Logger.info('No uncategorized transactions to process');
       return;
     }
 
     const examples = this.transactionFilterer.getManualOverrideTransactions(transactions);
-    console.log(`Found ${examples.length} manual override examples`);
+    Logger.info(`Found ${examples.length} manual override examples`);
 
     // Track suggested new categories
     const suggestedCategories = new Map<string, {

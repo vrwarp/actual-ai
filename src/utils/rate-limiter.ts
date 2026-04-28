@@ -1,3 +1,5 @@
+import { Logger } from './log-utils';
+
 // Define a custom error type for API rate limiting errors
 interface RateLimitError extends Error {
   statusCode?: number;
@@ -87,7 +89,7 @@ class RateLimiter {
     while (attempt <= retryParams.maxRetries) {
       try {
         if (attempt > 0) {
-          console.log(`Retry attempt ${attempt}/${retryParams.maxRetries} for ${provider}...`);
+          Logger.info(`Retry attempt ${attempt}/${retryParams.maxRetries} for ${provider}...`);
         }
 
         // Wait before proceeding if we need to
@@ -113,10 +115,10 @@ class RateLimiter {
 
           // Add additional details in debug mode
           if (this.debugMode) {
-            console.log(`Rate limit details for ${provider}:`, this.getRateLimitDebugInfo(provider, error));
+            Logger.info(`Rate limit details for ${provider}:`, this.getRateLimitDebugInfo(provider, error));
           }
 
-          console.log(`Rate limit hit for ${provider}. Waiting ${retryAfterMs}ms before retry.`);
+          Logger.info(`Rate limit hit for ${provider}. Waiting ${retryAfterMs}ms before retry.`);
           await this.sleep(retryAfterMs);
           attempt += 1;
         } else {
@@ -200,11 +202,11 @@ class RateLimiter {
         });
 
         if (this.debugMode) {
-          console.log(`Updated token bucket for ${provider}:`, this.tokenBuckets.get(provider));
+          Logger.info(`Updated token bucket for ${provider}:`, this.tokenBuckets.get(provider));
         }
       }
     } catch (e) {
-      console.warn('Error updating token bucket from error:', e);
+      Logger.warn('Error updating token bucket from error:', e);
     }
   }
 
@@ -261,7 +263,7 @@ class RateLimiter {
           }
         }
       } catch (e) {
-        console.warn('Error extracting retry-after information:', e);
+        Logger.warn('Error extracting retry-after information:', e);
       }
     }
     return undefined;
@@ -336,7 +338,7 @@ class RateLimiter {
       // If we're close to the limit and reset time is in the future
       if (bucket.remaining < bucket.limit * 0.10) {
         waitTime = bucket.resetTimestamp - now + 1000; // add 1 second buffer
-        console.log(`Waiting ${waitTime}ms for token bucket to reset for ${provider}`);
+        Logger.info(`Waiting ${waitTime}ms for token bucket to reset for ${provider}`);
         await this.sleep(waitTime);
         return;
       }
@@ -348,7 +350,7 @@ class RateLimiter {
       if (now - lastTime < 60000) {
         // Calculate time remaining until the minute is up
         waitTime = 60000 - (now - lastTime) + 100; // add 100ms buffer
-        console.log(`Preemptively waiting ${waitTime}ms to avoid rate limit for ${provider}`);
+        Logger.info(`Preemptively waiting ${waitTime}ms to avoid rate limit for ${provider}`);
         await this.sleep(waitTime);
       }
     }

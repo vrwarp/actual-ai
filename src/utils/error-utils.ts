@@ -1,3 +1,5 @@
+import { Logger } from './log-utils';
+
 interface RateLimitError extends Error {
   statusCode?: number;
   responseHeaders?: {
@@ -65,7 +67,7 @@ export const extractRetryAfterMs = (error: unknown): number | undefined => {
         }
       }
     } catch (e) {
-      console.warn('Error extracting retry-after information:', e);
+      Logger.warn('Error extracting retry-after information:', e);
     }
   }
 

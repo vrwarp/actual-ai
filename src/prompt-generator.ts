@@ -4,6 +4,7 @@ import handlebars from './handlebars-helpers';
 import {
   PromptGeneratorI,
 } from './types';
+import { Logger } from './utils/log-utils';
 import PromptTemplateException from './exceptions/prompt-template-exception';
 import { isToolEnabled } from './config';
 import { transformRulesToDescriptions } from './utils/rule-utils';
@@ -57,7 +58,7 @@ class PromptGenerator implements PromptGeneratorI {
     try {
       template = handlebars.compile(this.promptTemplate);
     } catch {
-      console.error('Error generating prompt. Check syntax of your template.');
+      Logger.error('Error generating prompt. Check syntax of your template.');
       throw new PromptTemplateException('Error generating prompt. Check syntax of your template.');
     }
     const payeeName = payees.find((payee) => payee.id === transaction.payee)?.name;
@@ -109,7 +110,7 @@ class PromptGenerator implements PromptGeneratorI {
         hasWebSearchTool: webSearchEnabled,
       });
     } catch {
-      console.error('Error generating prompt. Check syntax of your template.');
+      Logger.error('Error generating prompt. Check syntax of your template.');
       throw new PromptTemplateException('Error generating prompt. Check syntax of your template.');
     }
   }

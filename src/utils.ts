@@ -1,3 +1,5 @@
+import { Logger } from './utils/log-utils';
+
 /**
  * Executes an asynchronous callback while temporarily suppressing `console.log` output.
  *
@@ -8,7 +10,10 @@
  * @returns A promise that resolves to the result of the callback.
  */
 async function suppressConsoleLogsAsync(callback: () => Promise<void>) {
+  const originalInfo = Logger.info;
   const originalConsoleLog = console.log;
+  // eslint-disable-next-line @typescript-eslint/no-empty-function
+  Logger.info = () => {};
   // eslint-disable-next-line @typescript-eslint/no-empty-function
   console.log = () => {};
 
@@ -16,6 +21,7 @@ async function suppressConsoleLogsAsync(callback: () => Promise<void>) {
     const result = await callback();
     return result;
   } finally {
+    Logger.info = originalInfo;
     console.log = originalConsoleLog;
   }
 }

@@ -1,6 +1,7 @@
 import cron from 'node-cron';
 import { cronSchedule, isFeatureEnabled } from './src/config';
 import actualAi from './src/container';
+import { Logger } from './src/utils/log-utils';
 
 /**
  * Main application entry point.
@@ -11,7 +12,7 @@ import actualAi from './src/container';
 
 // Validate configuration: Ensure at least one execution method is valid (startup or cron)
 if (!isFeatureEnabled('classifyOnStartup') && !cron.validate(cronSchedule)) {
-  console.error('classifyOnStartup not set or invalid cron schedule:', cronSchedule);
+  Logger.error('classifyOnStartup not set or invalid cron schedule:', cronSchedule);
   process.exit(1);
 }
 
@@ -22,7 +23,7 @@ if (cron.validate(cronSchedule)) {
   });
 }
 
-console.log('Application started');
+Logger.info('Application started');
 
 // Trigger immediate execution if enabled
 if (isFeatureEnabled('classifyOnStartup')) {
@@ -30,5 +31,5 @@ if (isFeatureEnabled('classifyOnStartup')) {
     await actualAi.classify();
   })();
 } else {
-  console.log('Application started, waiting for cron schedule:', cronSchedule);
+  Logger.info('Application started, waiting for cron schedule:', cronSchedule);
 }

@@ -3,6 +3,7 @@ import type {
   ActualApiServiceI, ProcessingStrategyI, UnifiedResponse,
 } from '../../types';
 import TagService from '../tag-service';
+import { Logger } from '../../utils/log-utils';
 
 /**
  * Strategy to handle LLM responses that match an existing category in the system.
@@ -68,7 +69,7 @@ class ExistingCategoryStrategy implements ProcessingStrategyI {
       return;
     }
 
-    console.log(`Using existing category: ${category.name}`);
+    Logger.info(`Using existing category: ${category.name}`);
     await this.actualApiService.updateTransactionNotesAndCategory(
       transaction.id,
       this.tagService.addGuessedTag(transaction.notes ?? ''),

@@ -1,5 +1,6 @@
 import dotenv from 'dotenv';
 import fs from 'fs';
+import { Logger } from './utils/log-utils';
 
 const defaultPromptTemplate = fs.readFileSync('./src/templates/prompt.hbs', 'utf8').trim();
 
@@ -60,11 +61,11 @@ try {
     if (Array.isArray(parsedFeatures)) {
       enabledFeatures = parsedFeatures as string[];
     } else {
-      console.warn('FEATURES environment variable is not a valid JSON array, ignoring');
+      Logger.warn('FEATURES environment variable is not a valid JSON array, ignoring');
     }
   }
 } catch (e) {
-  console.warn('Failed to parse FEATURES environment variable, ignoring', e);
+  Logger.warn('Failed to parse FEATURES environment variable, ignoring', e);
 }
 
 /**
@@ -191,7 +192,7 @@ export function registerCustomFeatureFlag(
  */
 export function toggleFeature(featureName: string, enabled?: boolean): boolean {
   if (!features[featureName]) {
-    console.warn(`Feature flag '${featureName}' does not exist`);
+    Logger.warn(`Feature flag '${featureName}' does not exist`);
     return false;
   }
   const newValue = enabled ?? !features[featureName].enabled;

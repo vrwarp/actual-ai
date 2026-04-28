@@ -9,6 +9,7 @@ import {
   PromptGeneratorI,
 } from '../types';
 import TagService from './tag-service';
+import { Logger } from '../utils/log-utils';
 
 /**
  * Service to process a single transaction for classification.
@@ -100,13 +101,13 @@ class TransactionProcessor {
         return;
       }
 
-      console.warn(`Unexpected response format: ${JSON.stringify(response)}`);
+      Logger.warn(`Unexpected response format: ${JSON.stringify(response)}`);
       await this.actualApiService.updateTransactionNotes(
         transaction.id,
         this.tagService.addNotGuessedTag(transaction.notes ?? ''),
       );
     } catch (error) {
-      console.error(`Error processing transaction ${transaction.id}:`, error);
+      Logger.error(`Error processing transaction ${transaction.id}:`, error);
       await this.actualApiService.updateTransactionNotes(
         transaction.id,
         this.tagService.addNotGuessedTag(transaction.notes ?? ''),
