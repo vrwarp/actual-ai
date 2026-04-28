@@ -3,6 +3,7 @@ import type { ActualApiServiceI } from '../types';
 import { APICategoryGroupEntity } from '../types';
 import CategorySuggestionOptimizer from '../category-suggestion-optimizer';
 import TagService from './tag-service';
+import { mask } from '../utils/log-utils';
 
 /**
  * Service responsible for creating new categories suggested by the AI.
@@ -74,7 +75,7 @@ class CategorySuggester {
           let groupId: string;
           if (suggestion.groupIsNew) {
             groupId = await this.actualApiService.createCategoryGroup(suggestion.groupName);
-            console.log(`Created new category group "${suggestion.groupName}" with ID ${groupId}`);
+            console.log(`Created new category group "${mask(suggestion.groupName)}" with ID ${groupId}`);
           } else {
             // Find existing group with matching name
             const existingGroup = categoryGroups.find(
@@ -96,7 +97,7 @@ class CategorySuggester {
             groupId,
           );
 
-          console.log(`Created new category "${suggestion.name}" with ID ${newCategoryId}`);
+          console.log(`Created new category "${mask(suggestion.name)}" with ID ${newCategoryId}`);
 
           // Use Promise.all with map for nested async operations
           await Promise.all(
@@ -106,11 +107,11 @@ class CategorySuggester {
                 this.tagService.addGuessedTag(transaction.notes ?? ''),
                 newCategoryId,
               );
-              console.log(`Assigned transaction ${transaction.id} to new category ${suggestion.name}`);
+              console.log(`Assigned transaction ${transaction.id} to new category ${mask(suggestion.name)}`);
             }),
           );
         } catch (error) {
-          console.error(`Error creating category ${suggestion.name}:`, error);
+          console.error(`Error creating category ${mask(suggestion.name)}:`, error);
         }
       }),
     );
