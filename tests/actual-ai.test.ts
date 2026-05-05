@@ -77,6 +77,7 @@ describe('ActualAiService', () => {
     const batchTransactionProcessor = new BatchTransactionProcessor(
       transactionProcessor,
       20,
+      2000,
     );
 
     transactionService = new TransactionService(

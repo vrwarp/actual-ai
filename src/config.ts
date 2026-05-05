@@ -31,6 +31,8 @@ export const groqApiKey = process.env.GROQ_API_KEY ?? '';
 export const groqModel = process.env.GROQ_MODEL ?? 'llama-3.3-70b-versatile';
 export const groqBaseURL = process.env.GROQ_BASE_URL ?? 'https://api.groq.com/openai/v1';
 export const valueSerpApiKey = process.env.VALUESERP_API_KEY ?? '';
+export const batchDelayMs = parseInt(process.env.BATCH_DELAY_MS ?? '2000', 10);
+export const batchSize = parseInt(process.env.BATCH_SIZE ?? '20', 10);
 
 /**
  * Interface representing a feature flag configuration.

@@ -8,8 +8,6 @@ import {
 } from '../types';
 import TransactionProcessor from './transaction-processor';
 
-const BATCH_DELAY_MS = 2000;
-
 /**
  * Service to process a list of transactions in batches.
  *
@@ -22,18 +20,23 @@ class BatchTransactionProcessor {
 
   private readonly batchSize: number;
 
+  private readonly batchDelayMs: number;
+
   /**
    * Constructs the BatchTransactionProcessor.
    *
    * @param transactionProcessor - The service used to process individual transactions.
    * @param batchSize - The number of transactions to process in a single batch.
+   * @param batchDelayMs - The delay in milliseconds between batches.
    */
   constructor(
     transactionProcessor: TransactionProcessor,
     batchSize: number,
+    batchDelayMs: number,
   ) {
     this.transactionProcessor = transactionProcessor;
     this.batchSize = batchSize;
+    this.batchDelayMs = batchDelayMs;
   }
 
   /**
@@ -96,9 +99,9 @@ class BatchTransactionProcessor {
 
       // Add a small delay between batches to avoid overwhelming the API
       if (batchEnd < uncategorizedTransactions.length) {
-        console.log(`Pausing for ${BATCH_DELAY_MS / 1000} seconds before next batch...`);
+        console.log(`Pausing for ${this.batchDelayMs / 1000} seconds before next batch...`);
         await new Promise((resolve) => {
-          setTimeout(resolve, BATCH_DELAY_MS);
+          setTimeout(resolve, this.batchDelayMs);
         });
       }
     }
