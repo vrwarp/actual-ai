@@ -71,7 +71,7 @@ class ActualApiService implements ActualApiServiceI {
    */
   public async initializeApi() {
     if (!this.fs.existsSync(this.dataDir)) {
-      this.fs.mkdirSync(this.dataDir);
+      this.fs.mkdirSync(this.dataDir, { recursive: true, mode: 0o700 });
     }
 
     await this.actualApiClient.init({
