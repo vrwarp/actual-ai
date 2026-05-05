@@ -1,5 +1,7 @@
 import dotenv from 'dotenv';
 import fs from 'fs';
+import os from 'os';
+import path from 'path';
 
 const defaultPromptTemplate = fs.readFileSync('./src/templates/prompt.hbs', 'utf8').trim();
 
@@ -22,7 +24,7 @@ export const googleBaseURL = process.env.GOOGLE_GENERATIVE_AI_BASE_URL ?? proces
 export const googleApiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY ?? '';
 export const ollamaBaseURL = process.env.OLLAMA_BASE_URL ?? 'http://localhost:11434/api';
 export const ollamaModel = process.env.OLLAMA_MODEL ?? 'llama3.1';
-export const dataDir = '/tmp/actual-ai/';
+export const dataDir = process.env.ACTUAL_DATA_DIR ?? fs.mkdtempSync(path.join(os.tmpdir(), 'actual-ai-'));
 export const promptTemplate = process.env.PROMPT_TEMPLATE ?? defaultPromptTemplate;
 export const notGuessedTag = process.env.NOT_GUESSED_TAG ?? '#actual-ai-miss';
 export const manualOverrideTag = process.env.MANUAL_OVERRIDE_TAG ?? '#actual-ai-override';
