@@ -163,15 +163,10 @@ class ActualApiService implements ActualApiServiceI {
    * @returns A promise that resolves to an array of transactions.
    */
   public async getTransactions(): Promise<TransactionEntity[]> {
-    let transactions: TransactionEntity[] = [];
     const accounts = await this.getAccounts();
-    // eslint-disable-next-line no-restricted-syntax
-    for (const account of accounts) {
-      transactions = transactions.concat(
-        await this.actualApiClient.getTransactions(account.id, '1990-01-01', '2030-01-01'),
-      );
-    }
-    return transactions;
+    const transactionPromises = accounts.map((account) => this.actualApiClient.getTransactions(account.id, '1990-01-01', '2030-01-01'));
+    const transactionsArrays = await Promise.all(transactionPromises);
+    return transactionsArrays.flat() as TransactionEntity[];
   }
 
   /**
