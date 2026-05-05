@@ -143,11 +143,13 @@ describe('ActualApiService', () => {
     });
 
     it('should get transactions', async () => {
+      const mockAccounts = [{ id: '1', name: 'Account' }];
+      mockActualApiClient.getAccounts.mockResolvedValue(mockAccounts);
       const mockTransactions = [{ id: '1', amount: 100 }];
       mockActualApiClient.getTransactions.mockResolvedValue(mockTransactions);
       const result = await service.getTransactions();
       expect(result).toEqual(mockTransactions);
-      expect(mockActualApiClient.getTransactions).toHaveBeenCalledWith(undefined, undefined, undefined);
+      expect(mockActualApiClient.getTransactions).toHaveBeenCalledWith('1', '1990-01-01', '2030-01-01');
     });
 
     it('should get rules', async () => {

@@ -2,6 +2,7 @@ name: Tests
 on:
   push:
   pull_request:
+  merge_group:
 jobs:
   eslint:
     runs-on: ubuntu-latest
