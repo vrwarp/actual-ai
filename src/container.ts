@@ -7,6 +7,8 @@ import {
   anthropicApiKey,
   anthropicBaseURL,
   anthropicModel,
+  batchDelayMs,
+  batchSize,
   budgetId,
   dataDir,
   e2ePassword,
@@ -130,7 +132,8 @@ const transactionProcessor = new TransactionProcessor(
 
 const batchTransactionProcessor = new BatchTransactionProcessor(
   transactionProcessor,
-  20,
+  batchSize,
+  batchDelayMs,
 );
 
 const transactionFilterer = new TransactionFilterer(tagService);
