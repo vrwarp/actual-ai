@@ -222,8 +222,10 @@ export function registerCustomFeatureFlag(
  * Toggles a feature on or off.
  *
  * @param featureName - The name of the feature to toggle.
- * @param enabled - Optional boolean to force a specific state (true/false). If omitted, toggles the current state.
- * @returns The new state of the feature (true if enabled, false if disabled). Returns false if the feature does not exist.
+ * @param enabled - Optional boolean to force a specific state (true/false).
+ *   If omitted, toggles the current state.
+ * @returns The new state of the feature (true if enabled, false if disabled).
+ *   Returns false if the feature does not exist.
  */
 export function toggleFeature(featureName: string, enabled?: boolean): boolean {
   if (!features[featureName]) {
