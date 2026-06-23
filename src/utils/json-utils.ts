@@ -68,10 +68,12 @@ function parseLlmResponse(text: string): UnifiedResponse {
     if (parsed.type === 'existing' && parsed.categoryId) {
       return { type: 'existing', categoryId: parsed.categoryId };
     }
-    if (parsed.type === 'rule' && parsed.categoryId && parsed.ruleName) {
+    if (parsed.type === 'rule' && parsed.ruleName) {
+      // categoryId is optional — a rule that says "leave uncategorized"
+      // matches with no category assignment.
       return {
         type: 'rule',
-        categoryId: parsed.categoryId,
+        ...(parsed.categoryId ? { categoryId: parsed.categoryId } : {}),
         ruleName: parsed.ruleName,
       };
     }

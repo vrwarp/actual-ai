@@ -41,20 +41,23 @@ Here are some examples of manually categorized transactions:
 IMPORTANT: You MUST respond with ONLY a valid JSON object using this structure:
 {
   "type": "existing"|"new"|"rule",
-  "categoryId": "string", // Required for existing category or rule match
+  "categoryId": "string", // Required for "existing"; for "rule" include only when the matched rule sets a category, omit when the rule says "leave uncategorized"
   "ruleName": "string", // Required if matching rule
   "newCategory": { // Required if suggesting new category
-    "name": "string", 
+    "name": "string",
     "groupName": "string",
     "groupIsNew": boolean
   }
 }
+
+If a rule renders as "→ leave uncategorized", that rule explicitly tells you NOT to assign a category. Match it with type "rule" and the ruleName, and OMIT categoryId — do not invent one and do not fall back to "new".
 
 DO NOT output any text before or after the JSON. Your entire response must be a valid, parsable JSON object.
 
 Examples:
 {"type": "existing", "categoryId": "abc123"}
 {"type": "rule", "categoryId": "def456", "ruleName": "Coffee Shop"}
+{"type": "rule", "ruleName": "Amazon leave uncategorized"}
 {"type": "new", "newCategory": {"name": "Pet Supplies", "groupName": "Pets", "groupIsNew": true}}
 
 {{#if hasWebSearchTool}}

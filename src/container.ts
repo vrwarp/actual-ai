@@ -22,6 +22,7 @@ import {
   guessedTag,
   isFeatureEnabled,
   llmProvider,
+  llmTimeoutMs,
   manualOverrideTag,
   notGuessedTag,
   ollamaBaseURL,
@@ -29,9 +30,17 @@ import {
   openaiApiKey,
   openaiBaseURL,
   openaiModel,
+  openrouterApiKey,
+  openrouterBaseURL,
+  openrouterEnableToolCalling,
+  openrouterModel,
+  openrouterReferrer,
+  openrouterTitle,
   password,
   promptTemplate,
+  requestsPerMinuteOverride,
   serverURL,
+  tokensPerMinuteOverride,
   valueSerpApiKey,
 } from './config';
 import ActualAiService from './actual-ai';
@@ -59,9 +68,12 @@ import RateLimiter from './utils/rate-limiter';
  */
 
 // Create tool service if API key is available and tools are enabled
-const toolService = valueSerpApiKey && getEnabledTools().length > 0
-  ? new ToolService(valueSerpApiKey)
-  : undefined;
+export function createToolService(): ToolService | undefined {
+  // freeWebSearch does not require ValueSerp; only the paid `webSearch` does.
+  return getEnabledTools().length > 0 ? new ToolService(valueSerpApiKey) : undefined;
+}
+
+const toolService = createToolService();
 
 const isDryRun = isFeatureEnabled('dryRun');
 
@@ -70,6 +82,11 @@ const llmModelFactory = new LlmModelFactory(
   openaiApiKey,
   openaiModel,
   openaiBaseURL,
+  openrouterApiKey,
+  openrouterModel,
+  openrouterBaseURL,
+  openrouterReferrer,
+  openrouterTitle,
   anthropicBaseURL,
   anthropicApiKey,
   anthropicModel,
@@ -106,6 +123,12 @@ const llmService = new LlmService(
   new RateLimiter(true),
   isFeatureEnabled('disableRateLimiter'),
   toolService,
+  {
+    timeoutMs: llmTimeoutMs,
+    openrouterEnableToolCalling,
+    requestsPerMinuteOverride,
+    tokensPerMinuteOverride,
+  },
 );
 
 const ruleMatchStrategy = new RuleMatchStrategy(actualApiService, tagService);

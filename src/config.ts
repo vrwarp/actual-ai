@@ -1,5 +1,6 @@
 import dotenv from 'dotenv';
 import fs from 'fs';
+import { parseRateLimitEnv } from './utils/parse-rate-limit-env';
 
 const defaultPromptTemplate = fs.readFileSync('./src/templates/prompt.hbs', 'utf8').trim();
 
@@ -10,10 +11,20 @@ export const password = process.env.ACTUAL_PASSWORD ?? '';
 export const budgetId = process.env.ACTUAL_BUDGET_ID ?? '';
 export const e2ePassword = process.env.ACTUAL_E2E_PASSWORD ?? '';
 export const cronSchedule = process.env.CLASSIFICATION_SCHEDULE_CRON ?? '';
-export const llmProvider = process.env.LLM_PROVIDER ?? 'openai';
+export const openrouterApiKey = process.env.OPENROUTER_API_KEY ?? '';
+export const llmProvider = process.env.LLM_PROVIDER ?? (openrouterApiKey ? 'openrouter' : 'openai');
 export const openaiBaseURL = process.env.OPENAI_BASE_URL ?? 'https://api.openai.com/v1';
 export const openaiApiKey = process.env.OPENAI_API_KEY ?? '';
-export const openaiModel = process.env.OPENAI_MODEL ?? 'gpt-4o-mini';
+export const openaiModel = process.env.OPENAI_MODEL ?? 'gpt-4.1-mini';
+export const openrouterBaseURL = process.env.OPENROUTER_BASE_URL ?? 'https://openrouter.ai/api/v1';
+export const openrouterModel = process.env.OPENROUTER_MODEL ?? 'deepseek/deepseek-v3.2';
+export const openrouterReferrer = process.env.OPENROUTER_REFERRER ?? process.env.OPENROUTER_REFERER ?? '';
+export const openrouterTitle = process.env.OPENROUTER_TITLE ?? 'actual-ai';
+const parsedLlmTimeoutMs = Number.parseInt(process.env.LLM_TIMEOUT_MS ?? '', 10);
+export const llmTimeoutMs = Number.isFinite(parsedLlmTimeoutMs) && parsedLlmTimeoutMs > 0
+  ? parsedLlmTimeoutMs
+  : 120_000;
+export const openrouterEnableToolCalling = process.env.OPENROUTER_ENABLE_TOOL_CALLING === 'true';
 export const anthropicApiKey = process.env.ANTHROPIC_API_KEY ?? '';
 export const anthropicBaseURL = process.env.ANTHROPIC_BASE_URL ?? 'https://api.anthropic.com/v1';
 export const anthropicModel = process.env.ANTHROPIC_MODEL ?? 'claude-3-5-sonnet-latest';
@@ -33,6 +44,17 @@ export const groqBaseURL = process.env.GROQ_BASE_URL ?? 'https://api.groq.com/op
 export const valueSerpApiKey = process.env.VALUESERP_API_KEY ?? '';
 export const batchDelayMs = parseInt(process.env.BATCH_DELAY_MS ?? '2000', 10);
 export const batchSize = parseInt(process.env.BATCH_SIZE ?? '20', 10);
+
+// Optional per-deployment overrides for LLM rate limits.
+// `null` → use provider default; `0` → disable that axis; `>0` → custom limit.
+export const requestsPerMinuteOverride = parseRateLimitEnv(
+  process.env.REQUESTS_PER_MINUTE,
+  'REQUESTS_PER_MINUTE',
+);
+export const tokensPerMinuteOverride = parseRateLimitEnv(
+  process.env.TOKENS_PER_MINUTE,
+  'TOKENS_PER_MINUTE',
+);
 
 /**
  * Interface representing a feature flag configuration.
@@ -64,9 +86,21 @@ try {
     } else {
       console.warn('FEATURES environment variable is not a valid JSON array, ignoring');
     }
+  } else if (process.env.ENABLED_FEATURES) {
+    const raw = process.env.ENABLED_FEATURES.trim();
+    if (raw.startsWith('[')) {
+      const parsedFeatures = JSON.parse(raw) as unknown;
+      if (Array.isArray(parsedFeatures)) {
+        enabledFeatures = parsedFeatures as string[];
+      } else {
+        console.warn('ENABLED_FEATURES must be a comma list or JSON array, ignoring');
+      }
+    } else {
+      enabledFeatures = raw.split(',').map((s) => s.trim()).filter(Boolean);
+    }
   }
 } catch (e) {
-  console.warn('Failed to parse FEATURES environment variable, ignoring', e);
+  console.warn('Failed to parse FEATURES/ENABLED_FEATURES environment variable, ignoring', e);
 }
 
 /**

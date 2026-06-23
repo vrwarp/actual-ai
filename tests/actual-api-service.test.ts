@@ -23,8 +23,13 @@ const mockActualApiClient = {
 };
 
 const mockFs = {
-  existsSync: jest.fn<() => boolean>(),
+  existsSync: jest.fn<(path: unknown) => boolean>(),
   mkdirSync: jest.fn<() => void>(),
+  openSync: jest.fn<() => number>(),
+  writeFileSync: jest.fn<() => void>(),
+  closeSync: jest.fn<() => void>(),
+  unlinkSync: jest.fn<() => void>(),
+  readFileSync: jest.fn<() => string>(),
 };
 
 describe('ActualApiService', () => {
@@ -53,6 +58,7 @@ describe('ActualApiService', () => {
   describe('initializeApi', () => {
     it('should initialize api and download budget', async () => {
       mockFs.existsSync.mockReturnValue(false);
+      mockFs.openSync.mockReturnValue(1);
       mockActualApiClient.init.mockResolvedValue(undefined);
       mockActualApiClient.downloadBudget.mockResolvedValue(undefined);
 
@@ -60,7 +66,7 @@ describe('ActualApiService', () => {
       await service.initializeApi();
 
       expect(mockFs.existsSync).toHaveBeenCalledWith(dataDir);
-      expect(mockFs.mkdirSync).toHaveBeenCalledWith(dataDir);
+      expect(mockFs.mkdirSync).toHaveBeenCalledWith(dataDir, { recursive: true });
       expect(mockActualApiClient.init).toHaveBeenCalledWith({
         dataDir,
         serverURL,
@@ -72,7 +78,9 @@ describe('ActualApiService', () => {
     });
 
     it('should download budget without e2e password if not provided', async () => {
-      mockFs.existsSync.mockReturnValue(true);
+      // dataDir already exists, but no lock file present so the run can proceed.
+      mockFs.existsSync.mockImplementation((p: unknown) => p === dataDir);
+      mockFs.openSync.mockReturnValue(1);
       service = new ActualApiService(
         mockActualApiClient as unknown as typeof import('@actual-app/api'),
         mockFs as unknown as typeof import('fs'),
@@ -90,6 +98,8 @@ describe('ActualApiService', () => {
     });
 
     it('should throw error if download fails', async () => {
+      mockFs.existsSync.mockReturnValue(false);
+      mockFs.openSync.mockReturnValue(1);
       mockActualApiClient.downloadBudget.mockRejectedValue(new Error('Connection failed'));
       service = createService();
 
@@ -143,11 +153,13 @@ describe('ActualApiService', () => {
     });
 
     it('should get transactions', async () => {
+      const mockAccounts = [{ id: 'acc-1', name: 'Account' }];
+      mockActualApiClient.getAccounts.mockResolvedValue(mockAccounts);
       const mockTransactions = [{ id: '1', amount: 100 }];
       mockActualApiClient.getTransactions.mockResolvedValue(mockTransactions);
       const result = await service.getTransactions();
       expect(result).toEqual(mockTransactions);
-      expect(mockActualApiClient.getTransactions).toHaveBeenCalledWith(undefined, undefined, undefined);
+      expect(mockActualApiClient.getTransactions).toHaveBeenCalledWith('acc-1', '1990-01-01', '2030-01-01');
     });
 
     it('should get rules', async () => {

@@ -1,4 +1,4 @@
-import type { TransactionEntity } from '@actual-app/api/@types/loot-core/src/types/models';
+import type { TransactionEntity } from '@actual-app/core/src/types/models';
 import type { ActualApiServiceI } from '../types';
 import { APICategoryGroupEntity } from '../types';
 import CategorySuggestionOptimizer from '../category-suggestion-optimizer';
@@ -67,27 +67,38 @@ class CategorySuggester {
 
     console.log(`Creating ${optimizedCategories.size} optimized categories`);
 
+    // Resolve unique group names to IDs sequentially before the parallel
+    // category creation. The LLM-supplied `groupIsNew` flag cannot be
+    // trusted (it sometimes claims existing groups are new), and creating
+    // groups in parallel races on the Actual Budget API which throws
+    // "category group already exists" when two creations collide.
+    const uniqueGroupNames = Array.from(new Set(
+      Array.from(optimizedCategories.values()).map((s) => s.groupName),
+    ));
+    const groupIdByName = new Map<string, string>();
+    // eslint-disable-next-line no-restricted-syntax
+    for (const groupName of uniqueGroupNames) {
+      const existing = categoryGroups.find(
+        (g) => g.name.toLowerCase() === groupName.toLowerCase(),
+      );
+      if (existing) {
+        groupIdByName.set(groupName, existing.id);
+      } else {
+        try {
+          const newId = await this.actualApiService.createCategoryGroup(groupName);
+          groupIdByName.set(groupName, newId);
+          console.log(`Created new category group "${mask(groupName)}" with ID ${newId}`);
+        } catch (error) {
+          console.error(`Error creating category group ${mask(groupName)}:`, error);
+        }
+      }
+    }
+
     // Use optimized categories instead of original suggestions
     await Promise.all(
       Array.from(optimizedCategories.entries()).map(async ([_key, suggestion]) => {
         try {
-          // First, ensure we have a group ID
-          let groupId: string;
-          if (suggestion.groupIsNew) {
-            groupId = await this.actualApiService.createCategoryGroup(suggestion.groupName);
-            console.log(`Created new category group "${mask(suggestion.groupName)}" with ID ${groupId}`);
-          } else {
-            // Find existing group with matching name
-            const existingGroup = categoryGroups.find(
-              (g) => g.name.toLowerCase() === suggestion.groupName.toLowerCase(),
-            );
-            groupId = existingGroup?.id
-                              ?? await this.actualApiService.createCategoryGroup(
-                                suggestion.groupName,
-                              );
-          }
-
-          // Validate groupId exists before creating category
+          const groupId = groupIdByName.get(suggestion.groupName);
           if (!groupId) {
             throw new Error(`Missing groupId for category ${suggestion.name}`);
           }

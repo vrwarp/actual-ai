@@ -4,10 +4,10 @@ import {
   APICategoryEntity as ImportedAPICategoryEntity,
   APICategoryGroupEntity as ImportedAPICategoryGroupEntity,
   APIPayeeEntity,
-} from '@actual-app/api/@types/loot-core/src/server/api-models';
+} from '@actual-app/core/src/server/api-models';
 import {
   TransactionEntity, RuleEntity, CategoryEntity, CategoryGroupEntity,
-} from '@actual-app/api/@types/loot-core/src/types/models';
+} from '@actual-app/core/src/types/models';
 
 /**
  * Union type for Category Entities, combining API and core model types.
@@ -190,6 +190,8 @@ export interface LlmServiceI {
 export interface ToolServiceI {
   /** Returns a map of available tools. */
   getTools(): Record<string, Tool>;
+  // Optional helper to run a single search outside model tool-calling.
+  search?(query: string): Promise<string>;
 }
 
 /**

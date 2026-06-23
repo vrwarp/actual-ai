@@ -15,6 +15,11 @@ interface OrganicResults {
   organic_results?: SearchResult[];
 }
 
+interface CachedSearchResult {
+  value: string;
+  expiresAt: number;
+}
+
 /**
  * Service that provides tools to the LLM (Large Language Model).
  *
@@ -23,9 +28,19 @@ interface OrganicResults {
  * functions for the AI to retrieve external information during transaction classification.
  */
 export default class ToolService implements ToolServiceI {
+  private static readonly CACHE_TTL_MS = 30 * 60 * 1000;
+
+  private static readonly CACHE_MAX_ENTRIES = 200;
+
   private readonly valueSerpApiKey: string;
 
   private readonly freeWebSearchService: FreeWebSearchService;
+
+  private readonly webSearchCache = new Map<string, CachedSearchResult>();
+
+  private readonly freeWebSearchCache = new Map<string, CachedSearchResult>();
+
+  private freeWebSearchDisabledMessage = '';
 
   /**
    * Constructs the ToolService.
@@ -35,6 +50,51 @@ export default class ToolService implements ToolServiceI {
   constructor(valueSerpApiKey: string) {
     this.valueSerpApiKey = valueSerpApiKey;
     this.freeWebSearchService = new FreeWebSearchService();
+  }
+
+  /**
+   * Run a single search outside of model tool-calling. This is useful for providers/models
+   * that do not reliably support function/tool calling.
+   */
+  public async search(query: string): Promise<string> {
+    const q = this.normalizeQuery(query);
+    if (!q) return 'Search unavailable';
+
+    if (getEnabledTools().includes('webSearch')) {
+      return this.searchWithCache({
+        query: q,
+        cache: this.webSearchCache,
+        unavailableMessage: 'Search unavailable',
+        searchTypeLabel: 'web search',
+        executor: async (normalizedQuery) => {
+          if (!this.valueSerpApiKey) return 'Search unavailable';
+          const results = await this.performSearch(normalizedQuery);
+          return this.formatSearchResults(results);
+        },
+      });
+    }
+
+    if (getEnabledTools().includes('freeWebSearch')) {
+      return this.searchWithCache({
+        query: q,
+        cache: this.freeWebSearchCache,
+        unavailableMessage: this.freeWebSearchDisabledMessage || 'Search unavailable',
+        searchTypeLabel: 'free web search',
+        executor: async (normalizedQuery) => {
+          if (this.freeWebSearchDisabledMessage) return this.freeWebSearchDisabledMessage;
+          try {
+            const results = await this.freeWebSearchService.search(normalizedQuery);
+            return this.freeWebSearchService.formatSearchResults(results);
+          } catch (error) {
+            this.setFreeWebSearchBackoffOnHttpError(error);
+            console.error('Error during free web search:', error);
+            return this.freeWebSearchDisabledMessage || 'Web search failed. Please try again later.';
+          }
+        },
+      });
+    }
+
+    return 'Search unavailable';
   }
 
   /**
@@ -54,12 +114,17 @@ export default class ToolService implements ToolServiceI {
             + 'Example: "StudntLN" (merchant|business|company|payee)',
           ),
         }),
-        execute: async ({ query }: { query: string }): Promise<string> => {
-          if (!this.valueSerpApiKey) return 'Search unavailable';
-          console.log(`Performing web search for ${query}`);
-          const results = await this.performSearch(query);
-          return this.formatSearchResults(results);
-        },
+        execute: async ({ query }: { query: string }): Promise<string> => this.searchWithCache({
+          query,
+          cache: this.webSearchCache,
+          unavailableMessage: 'Search unavailable',
+          searchTypeLabel: 'web search',
+          executor: async (normalizedQuery) => {
+            if (!this.valueSerpApiKey) return 'Search unavailable';
+            const results = await this.performSearch(normalizedQuery);
+            return this.formatSearchResults(results);
+          },
+        }),
       });
     }
 
@@ -72,20 +137,105 @@ export default class ToolService implements ToolServiceI {
             + 'Example: "StudntLN" or "Student Loan"',
           ),
         }),
-        execute: async ({ query }: { query: string }): Promise<string> => {
-          console.log(`Performing free web search for ${query}`);
-          try {
-            const results = await this.freeWebSearchService.search(query);
-            return this.freeWebSearchService.formatSearchResults(results);
-          } catch (error) {
-            console.error('Error during free web search:', error);
-            return 'Web search failed. Please try again later.';
-          }
-        },
+        execute: async ({ query }: { query: string }): Promise<string> => this.searchWithCache({
+          query,
+          cache: this.freeWebSearchCache,
+          unavailableMessage: this.freeWebSearchDisabledMessage || 'Search unavailable',
+          searchTypeLabel: 'free web search',
+          executor: async (normalizedQuery) => {
+            if (this.freeWebSearchDisabledMessage) return this.freeWebSearchDisabledMessage;
+            try {
+              const results = await this.freeWebSearchService.search(normalizedQuery);
+              return this.freeWebSearchService.formatSearchResults(results);
+            } catch (error) {
+              this.setFreeWebSearchBackoffOnHttpError(error);
+              console.error('Error during free web search:', error);
+              return this.freeWebSearchDisabledMessage || 'Web search failed. Please try again later.';
+            }
+          },
+        }),
       });
     }
 
     return tools;
+  }
+
+  private normalizeQuery(query: string): string {
+    return query.trim();
+  }
+
+  private getCachedResult(
+    cache: Map<string, CachedSearchResult>,
+    cacheKey: string,
+  ): string | undefined {
+    const cached = cache.get(cacheKey);
+    if (!cached) return undefined;
+    if (cached.expiresAt <= Date.now()) {
+      cache.delete(cacheKey);
+      return undefined;
+    }
+    return cached.value;
+  }
+
+  private setCachedResult(
+    cache: Map<string, CachedSearchResult>,
+    cacheKey: string,
+    value: string,
+  ): void {
+    this.pruneExpiredEntries(cache);
+    if (cache.size >= ToolService.CACHE_MAX_ENTRIES) {
+      const oldestKey = cache.keys().next().value;
+      if (oldestKey) {
+        cache.delete(oldestKey);
+      }
+    }
+    cache.set(cacheKey, {
+      value,
+      expiresAt: Date.now() + ToolService.CACHE_TTL_MS,
+    });
+  }
+
+  private pruneExpiredEntries(cache: Map<string, CachedSearchResult>): void {
+    const now = Date.now();
+    for (const [key, entry] of cache.entries()) {
+      if (entry.expiresAt <= now) {
+        cache.delete(key);
+      }
+    }
+  }
+
+  private async searchWithCache({
+    query,
+    cache,
+    unavailableMessage,
+    searchTypeLabel,
+    executor,
+  }: {
+    query: string;
+    cache: Map<string, CachedSearchResult>;
+    unavailableMessage: string;
+    searchTypeLabel: string;
+    executor: (normalizedQuery: string) => Promise<string>;
+  }): Promise<string> {
+    const normalizedQuery = this.normalizeQuery(query);
+    if (!normalizedQuery) return unavailableMessage;
+    const cacheKey = normalizedQuery.toLowerCase();
+    const cached = this.getCachedResult(cache, cacheKey);
+    if (cached) return cached;
+    console.log(`Performing ${searchTypeLabel} for ${normalizedQuery}`);
+    const result = await executor(normalizedQuery);
+    this.setCachedResult(cache, cacheKey, result);
+    return result;
+  }
+
+  private setFreeWebSearchBackoffOnHttpError(error: unknown): void {
+    if (this.freeWebSearchDisabledMessage) return;
+    const message = error instanceof Error ? error.message : String(error ?? '');
+    const statusMatch = /status code[: ]+(\d{3})/i.exec(message);
+    const status = statusMatch ? Number.parseInt(statusMatch[1], 10) : NaN;
+    if (status === 403 || status === 429) {
+      this.freeWebSearchDisabledMessage = `Free web search is temporarily unavailable (HTTP ${status}).`;
+    }
   }
 
   /**
@@ -159,19 +309,26 @@ export default class ToolService implements ToolServiceI {
     const processedResults: SearchResult[] = [];
 
     // Deduplication logic with first occurrence preference
-    results.organic_results.forEach((result) => {
+    results.organic_results.forEach((result: any) => {
+      // ValueSerp occasionally omits fields (e.g. snippet) depending on result type.
+      // Normalize to strings so formatting never throws.
+      const normalized: SearchResult = {
+        title: typeof result?.title === 'string' ? result.title : '',
+        snippet: typeof result?.snippet === 'string' ? result.snippet : '',
+        link: typeof result?.link === 'string' ? result.link : '',
+      };
       const isDuplicate = processedResults.some(
-        (pr) => this.getSimilarity(pr.title, result.title) > 0.8,
+        (pr) => this.getSimilarity(pr.title, normalized.title) > 0.8,
       );
       if (!isDuplicate) {
-        processedResults.push(result);
+        processedResults.push(normalized);
       }
     });
 
     // Format first 3 unique results
     const formattedResults = processedResults.slice(0, 3)
       .map((result, index) => `[Source ${index + 1}] ${result.title}\n`
-        + `${result.snippet.replace(/(\r\n|\n|\r)/gm, ' ').substring(0, 150)}...\n`
+        + `${(result.snippet || '').replace(/(\r\n|\n|\r)/gm, ' ').substring(0, 150)}...\n`
         + `URL: ${result.link}`).join('\n\n');
 
     return `SEARCH RESULTS:\n${formattedResults}`;
