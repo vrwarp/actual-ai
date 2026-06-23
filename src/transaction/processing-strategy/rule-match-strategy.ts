@@ -1,4 +1,4 @@
-import type { CategoryEntity, TransactionEntity } from '@actual-app/api/@types/loot-core/src/types/models';
+import type { TransactionEntity } from '@actual-app/core/src/types/models';
 import type {
   ActualApiServiceI, ProcessingStrategyI, UnifiedResponse,
 } from '../../types';
@@ -33,9 +33,6 @@ class RuleMatchStrategy implements ProcessingStrategyI {
    * @returns True if the response type is 'rule', and both categoryId and ruleName are present.
    */
   isSatisfiedBy(response: UnifiedResponse): boolean {
-    if (response.categoryId === undefined) {
-      return false;
-    }
     if (response.ruleName === undefined) {
       return false;
     }
@@ -57,16 +54,23 @@ class RuleMatchStrategy implements ProcessingStrategyI {
     transaction: TransactionEntity,
     response: UnifiedResponse,
   ) {
-    if (response.categoryId === undefined) {
-      throw new Error('No categoryId in response');
-    }
     let updatedNotes = this.tagService.addGuessedTag(transaction.notes ?? '');
     updatedNotes = `${updatedNotes} (rule: ${response.ruleName})`;
 
-    await this.actualApiService.updateTransactionNotesAndCategory(
+    if (response.categoryId) {
+      await this.actualApiService.updateTransactionNotesAndCategory(
+        transaction.id,
+        updatedNotes,
+        response.categoryId,
+      );
+      return;
+    }
+
+    // Rule explicitly leaves the transaction uncategorized — tag the
+    // notes so the rule attribution is visible, but don't assign a category.
+    await this.actualApiService.updateTransactionNotes(
       transaction.id,
       updatedNotes,
-      response.categoryId,
     );
   }
 }

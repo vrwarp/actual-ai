@@ -15,7 +15,7 @@
 This is a project that allows you to categorize uncategorized transactions
 for [Actual Budget](https://actualbudget.org/)
 using [OpenAI](https://openai.com/api/pricing/), [Anthropic](https://www.anthropic.com/pricing#anthropic-api), [Google Generative AI](https://ai.google/discover/generativeai/), [Ollama](https://github.com/ollama/ollama)
-or any other compatible API.
+or any other compatible API (including OpenRouter).
 
 ## 🌟 Features
 
@@ -68,17 +68,27 @@ services:
   actual-ai:
     image: docker.io/sakowicz/actual-ai:latest
     restart: unless-stopped
+    depends_on:
+      actual_server:
+        condition: service_healthy
     environment:
       ACTUAL_SERVER_URL: http://actual_server:5006
       ACTUAL_PASSWORD: your_actual_password
-      ACTUAL_BUDGET_ID: your_actual_budget_id # This is the ID from Settings → Show advanced settings → Sync ID
+      ACTUAL_BUDGET_ID: your_actual_budget_sync_id # This is the ID from Settings → Show advanced settings → Sync ID
       CLASSIFICATION_SCHEDULE_CRON: 0 */4 * * * # How often to run classification.
-      LLM_PROVIDER: openai # Can be "openai", "anthropic", "google-generative-ai", "ollama" or "groq"
+      LLM_PROVIDER: openai # Can be "openai", "openrouter", "anthropic", "google-generative-ai", "ollama" or "groq"
       FEATURES: '["classifyOnStartup", "syncAccountsBeforeClassify", "freeWebSearch", "suggestNewCategories"]'
 #      VALUESERP_API_KEY: your_valueserp_api_key # API key for ValueSerp, required if webSearch tool is enabled
 #      OPENAI_API_KEY:  # optional. required if you want to use the OpenAI API
-#      OPENAI_MODEL:  # optional. required if you want to use a specific model, default is "gpt-4o-mini"
+#      OPENAI_MODEL:  # optional. required if you want to use a specific model, default is "gpt-5-mini"
 #      OPENAI_BASE_URL:  # optional. required if you don't want to use the OpenAI API but OpenAI compatible API, ex: "http://ollama:11424/v1
+#      OPENROUTER_API_KEY:  # optional. required if you want to use OpenRouter
+#      OPENROUTER_MODEL:  # optional. default is "deepseek/deepseek-v3.2"
+#      OPENROUTER_BASE_URL:  # optional. default: "https://openrouter.ai/api/v1"
+#      OPENROUTER_REFERRER:  # optional but recommended by OpenRouter (or OPENROUTER_REFERER)
+#      OPENROUTER_TITLE:  # optional. default: "actual-ai"
+#      LLM_TIMEOUT_MS:  # optional. request timeout in ms for LLM calls, default: 120000
+#      OPENROUTER_ENABLE_TOOL_CALLING:  # optional. "true" to allow model tool-calling on openrouter, default: false
 #      ANTHROPIC_API_KEY:  # optional. required if you want to use the Anthropic API
 #      ANTHROPIC_MODEL:  # optional. required if you want to use a specific model, default is "claude-3-5-sonnet-latest"
 #      ANTHROPIC_BASE_URL:  # optional. default: "https://api.anthropic.com/v1
@@ -98,12 +108,15 @@ services:
 
 ## Feature Configuration
 
-You can configure features in using the FEATURES array (recommended):
+You can configure features using `FEATURES` (JSON array) or `ENABLED_FEATURES` (comma-separated list or JSON array):
 
 The `FEATURES` environment variable accepts a JSON array of feature names to enable:
 
 ```
 FEATURES='["freeWebSearch", "suggestNewCategories", "classifyOnStartup", "syncAccountsBeforeClassify"]'
+
+# Equivalent:
+ENABLED_FEATURES='freeWebSearch,suggestNewCategories,classifyOnStartup,syncAccountsBeforeClassify'
 ```
 
 Available features:
@@ -115,6 +128,29 @@ Available features:
 - `dryRun` - Run in dry run mode (enabled by default)
 - `rerunMissedTransactions` - Re-process transactions previously marked as unclassified
 - `disableRateLimiter` - Disable Rate Limiter
+
+## Rate Limit Overrides
+
+By default each provider gets a conservative request/token-per-minute limit. You can override these per deployment with two environment variables — useful when your plan's actual limits differ from the built-in defaults (e.g. Google AI Free Tier sits well below the default 300 RPM):
+
+- `REQUESTS_PER_MINUTE` — proactive request-per-minute cap
+- `TOKENS_PER_MINUTE` — proactive token-per-minute cap
+
+Each variable supports three states:
+
+- **unset** (or empty) — fall back to the built-in provider default
+- **`0`** — disable that axis of proactive rate limiting (the provider's own 429 responses still drive reactive backoff)
+- **positive number** — use as the custom limit
+
+To turn off rate limiting entirely, add `disableRateLimiter` to your `FEATURES` array instead.
+
+## OpenRouter Tool Calling
+
+By default, model tool-calling is disabled when `LLM_PROVIDER=openrouter` because some gateway/model combinations can return unstable tool-call responses. You can re-enable it with:
+
+```
+OPENROUTER_ENABLE_TOOL_CALLING=true
+```
 
 ## Customizing the Prompt
 

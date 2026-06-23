@@ -1,6 +1,6 @@
 import type {
   TransactionEntity,
-} from '@actual-app/api/@types/loot-core/src/types/models';
+} from '@actual-app/core/src/types/models';
 import type {
   ActualApiServiceI,
   TransactionServiceI,
@@ -12,7 +12,8 @@ import TransactionFilterer from './transaction/transaction-filterer';
 
 /**
  * Service responsible for the high-level orchestration of transaction processing.
- * It retrieves data, filters transactions, delegates processing, and handles new category suggestions.
+ * It retrieves data, filters transactions, delegates processing, and handles new
+ * category suggestions.
  */
 class TransactionService implements TransactionServiceI {
   private readonly actualApiService: ActualApiServiceI;

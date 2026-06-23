@@ -1,6 +1,6 @@
 import type {
   TransactionEntity,
-} from '@actual-app/api/@types/loot-core/src/types/models';
+} from '@actual-app/core/src/types/models';
 import SimilarityCalculator from './similarity-calculator';
 import { mask } from './utils/log-utils';
 
@@ -13,7 +13,8 @@ class CategorySuggestionOptimizer {
   /**
    * Constructs a CategorySuggestionOptimizer.
    *
-   * @param similarityCalculator - The calculator used to determine string similarity between category names.
+   * @param similarityCalculator - The calculator used to determine string similarity
+   *   between category names.
    */
   constructor(
     similarityCalculator: SimilarityCalculator,
@@ -27,7 +28,8 @@ class CategorySuggestionOptimizer {
    * This method groups categories with similar names (using a dynamic similarity threshold),
    * selects the best representative name for each cluster, and merges their transactions.
    *
-   * @param suggestedCategories - A map where keys are unique identifiers (e.g., "Group:Category") and values are category details.
+   * @param suggestedCategories - A map where keys are unique identifiers
+   *   (e.g., "Group:Category") and values are category details.
    * @returns A new map of optimized category suggestions.
    */
   public optimizeCategorySuggestions(

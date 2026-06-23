@@ -134,7 +134,9 @@ describe('LlmService', () => {
       mockGenerateText.mockRejectedValue(new Error('LLM error'));
       service = createService();
 
-      await expect(service.ask('prompt')).rejects.toThrow('Invalid response format from LLM');
+      // Transport/provider errors bubble up unchanged so the RateLimiter can apply
+      // provider-specific backoff; only parse/validation errors are wrapped.
+      await expect(service.ask('prompt')).rejects.toThrow('LLM error');
     });
   });
 

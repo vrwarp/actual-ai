@@ -3,10 +3,15 @@ import {
   APICategoryEntity,
   APICategoryGroupEntity,
   APIPayeeEntity,
-} from '@actual-app/api/@types/loot-core/src/server/api-models';
-import { TransactionEntity, RuleEntity } from '@actual-app/api/@types/loot-core/src/types/models';
+} from '@actual-app/core/src/server/api-models';
+import path from 'path';
+import { TransactionEntity, RuleEntity } from '@actual-app/core/src/types/models';
 import { ActualApiServiceI } from './types';
 import { mask } from './utils/log-utils';
+
+function isErrnoException(error: unknown): error is Error & { code?: string } {
+  return error instanceof Error;
+}
 
 /**
  * Service that acts as a wrapper around the Actual Budget API.
@@ -29,6 +34,10 @@ class ActualApiService implements ActualApiServiceI {
   private readonly e2ePassword: string;
 
   private readonly isDryRun: boolean;
+
+  private lockFd: number | null = null;
+
+  private readonly lockPath: string;
 
   /**
    * Constructs the ActualApiService.
@@ -60,6 +69,67 @@ class ActualApiService implements ActualApiServiceI {
     this.budgetId = budgetId;
     this.e2ePassword = e2ePassword;
     this.isDryRun = isDryRun;
+    this.lockPath = path.join(this.dataDir, '.actual-ai.lock');
+  }
+
+  private acquireDataDirLock() {
+    // Prevent multiple concurrent runs from sharing the same dataDir. The underlying
+    // Actual sqlite DB is not safe for concurrent writers and can end up "out-of-sync".
+    if (!this.fs.existsSync(this.dataDir)) {
+      this.fs.mkdirSync(this.dataDir, { recursive: true });
+    }
+
+    if (this.fs.existsSync(this.lockPath)) {
+      try {
+        const raw = this.fs.readFileSync(this.lockPath, 'utf8');
+        const parsed = JSON.parse(raw) as { pid?: number; startedAt?: string };
+        const pid = parsed?.pid;
+        if (typeof pid === 'number') {
+          try {
+            process.kill(pid, 0);
+            throw new Error(
+              `Another actual-ai run appears active (pid=${pid}). `
+              + `Refusing to use shared dataDir: ${this.dataDir}`,
+            );
+          } catch (error: unknown) {
+            if (isErrnoException(error) && error.code === 'ESRCH') {
+              // Stale lock from a crashed process; remove it.
+              this.fs.unlinkSync(this.lockPath);
+            } else if (error instanceof Error) {
+              // process.kill threw, but it's not ESRCH; rethrow.
+              throw error;
+            }
+          }
+        } else {
+          // Unparseable/stale lock; remove it.
+          this.fs.unlinkSync(this.lockPath);
+        }
+      } catch (e) {
+        // If anything goes wrong reading the lock, fail safe.
+        throw e instanceof Error ? e : new Error('Failed to read dataDir lock');
+      }
+    }
+
+    // 'wx' creates exclusively; throws if exists.
+    this.lockFd = this.fs.openSync(this.lockPath, 'wx');
+    this.fs.writeFileSync(
+      this.lockFd,
+      JSON.stringify({ pid: process.pid, startedAt: new Date().toISOString() }),
+    );
+  }
+
+  private releaseDataDirLock() {
+    try {
+      if (this.lockFd !== null) {
+        this.fs.closeSync(this.lockFd);
+        this.lockFd = null;
+      }
+      if (this.fs.existsSync(this.lockPath)) {
+        this.fs.unlinkSync(this.lockPath);
+      }
+    } catch {
+      // Best-effort cleanup.
+    }
   }
 
   /**
@@ -70,9 +140,7 @@ class ActualApiService implements ActualApiServiceI {
    * @throws Error if the budget download fails or connection parameters are incorrect.
    */
   public async initializeApi() {
-    if (!this.fs.existsSync(this.dataDir)) {
-      this.fs.mkdirSync(this.dataDir);
-    }
+    this.acquireDataDirLock();
 
     await this.actualApiClient.init({
       dataDir: this.dataDir,
@@ -100,6 +168,9 @@ class ActualApiService implements ActualApiServiceI {
       console.error(errorMessage);
       console.error('Full error details:', error);
 
+      await this.actualApiClient.shutdown();
+      this.releaseDataDirLock();
+
       throw new Error(`Budget download failed. Verify that:
 1. Budget ID "${this.budgetId}" is correct
 2. Server URL "${this.serverURL}" is reachable
@@ -115,6 +186,7 @@ class ActualApiService implements ActualApiServiceI {
    */
   public async shutdownApi() {
     await this.actualApiClient.shutdown();
+    this.releaseDataDirLock();
   }
 
   /**
@@ -168,6 +240,7 @@ class ActualApiService implements ActualApiServiceI {
     // eslint-disable-next-line no-restricted-syntax
     for (const account of accounts) {
       transactions = transactions.concat(
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
         await this.actualApiClient.getTransactions(account.id, '1990-01-01', '2030-01-01'),
       );
     }
@@ -236,6 +309,10 @@ class ActualApiService implements ActualApiServiceI {
    * @returns A promise that resolves when the sync is complete.
    */
   public async runBankSync(): Promise<void> {
+    if (this.isDryRun) {
+      console.log('DRY RUN: Would run bank sync');
+      return;
+    }
     await this.actualApiClient.runBankSync();
   }
 
@@ -251,11 +328,13 @@ class ActualApiService implements ActualApiServiceI {
       console.log(`DRY RUN: Would create category name: ${mask(name)} groupId: ${mask(groupId)}`);
       return 'dry run';
     }
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     const result = await this.actualApiClient.createCategory({
       name,
       group_id: groupId,
     });
 
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
     return result;
   }
 
@@ -270,6 +349,7 @@ class ActualApiService implements ActualApiServiceI {
       console.log(`DRY RUN: Would create category group: ${mask(name)}`);
       return 'dry run';
     }
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
     return this.actualApiClient.createCategoryGroup({
       name,
     });
