@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>actual-ai · Configuration</title>
+  <link rel="stylesheet" href="/app.css" />
+</head>
+<body>
+  <div id="token-gate" class="gate" hidden>
+    <div class="gate-card">
+      <h1>🤖 actual-ai</h1>
+      <p>Enter the Web UI auth token printed in the application logs at startup.</p>
+      <form id="token-form">
+        <input id="token-input" type="password" autocomplete="off" placeholder="Auth token" aria-label="Auth token" />
+        <button type="submit">Unlock</button>
+      </form>
+      <p id="token-error" class="error-text" role="alert" hidden></p>
+      <button id="use-challenge-btn" class="ghost-btn" type="button" hidden>Unlock with budget data instead</button>
+    </div>
+  </div>
+
+  <div id="unlock-gate" class="gate" hidden>
+    <div class="gate-card">
+      <h1>🔐 Unlock</h1>
+      <p id="unlock-prompt">Prove you have access to this budget.</p>
+      <form id="unlock-form">
+        <div id="unlock-fields"></div>
+        <button type="submit">Unlock</button>
+      </form>
+      <p id="unlock-error" class="error-text" role="alert" hidden></p>
+      <button id="use-token-btn" class="ghost-btn" type="button">Use token instead</button>
+    </div>
+  </div>
+
+  <div id="app" hidden>
+    <header class="topbar">
+      <div class="brand">🤖 <span>actual-ai</span></div>
+      <div id="badges" class="badges"></div>
+      <div class="topbar-spacer"></div>
+      <button id="logout" class="ghost-btn" type="button">Lock</button>
+    </header>
+
+    <div class="layout">
+      <nav id="nav" class="sidebar" aria-label="Sections"></nav>
+      <main id="main" class="content" tabindex="-1"></main>
+    </div>
+
+    <div id="savebar" class="savebar" hidden>
+      <span id="savebar-text">Unsaved changes</span>
+      <div class="savebar-actions">
+        <button id="discard-btn" class="ghost-btn" type="button">Discard</button>
+        <button id="save-btn" class="primary-btn" type="button">Review &amp; save</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="modal-root"></div>
+  <div id="toasts" class="toasts" aria-live="polite"></div>
+
+  <script type="module" src="/app.js"></script>
+</body>
+</html>

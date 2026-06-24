@@ -17,4 +17,11 @@ ENV PATH=/opt/node_app/node_modules/.bin:$PATH
 WORKDIR /opt/node_app/app
 COPY --chown=node:node . .
 RUN npm run build
+# tsc compiles .ts only — copy the static Web UI assets into dist and verify.
+RUN cp -r /opt/node_app/app/src/web-ui /opt/node_app/app/dist/src/web-ui \
+    && test -f /opt/node_app/app/dist/src/web-ui/index.html
+
+# Companion config-editor / debug Web UI (opt-in via WEB_UI_ENABLED=true).
+EXPOSE 3001
+
 CMD [ "npm", "run", "prod" ]
