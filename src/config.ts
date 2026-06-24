@@ -296,6 +296,22 @@ export const webUiPort = (() => {
 export const webUiBindAddress = process.env.WEB_UI_BIND_ADDRESS ?? '127.0.0.1';
 export const mockMode = process.env.MOCK_MODE === 'true';
 
+/**
+ * Optional knowledge-challenge unlock for the Web UI. When set to a data kind, the
+ * user must enter a value that matches their real budget data (pulled read-only
+ * from Actual) to unlock the session — a second factor on top of the bearer token.
+ *   'off'      — disabled (default)
+ *   'account'  — must match one of the budget's account names
+ *   'payee'    — must match one of the budget's payee names
+ *   'category' — must match one of the budget's category names
+ */
+const challengeRaw = (process.env.WEB_UI_UNLOCK_CHALLENGE ?? 'off').trim().toLowerCase();
+export const webUiUnlockChallenge: 'off' | 'account' | 'payee' | 'category' = (
+  ['account', 'payee', 'category'].includes(challengeRaw)
+    ? challengeRaw
+    : 'off'
+) as 'off' | 'account' | 'payee' | 'category';
+
 // ---------------------------------------------------------------------------
 // Resolved configuration object + pure resolver.
 // `resolveConfig` lets the Web UI compute what a PENDING overlay would produce

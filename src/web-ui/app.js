@@ -1,4 +1,6 @@
-import { api, setToken, hasToken } from '/api.js';
+import {
+  api, setToken, hasToken, setTicket,
+} from '/api.js';
 import { el, renderField } from '/schema-render.js';
 
 // ---------------- state ----------------
@@ -494,18 +496,89 @@ async function load() {
 }
 
 // ---------------- boot ----------------
+function hideAllGates() {
+  $('token-gate').hidden = true;
+  $('unlock-gate').hidden = true;
+}
+
+async function enterApp() {
+  await load();
+  hideAllGates();
+  $('app').hidden = false;
+}
+
+function showUnlockGate(status, message) {
+  $('app').hidden = true;
+  $('token-gate').hidden = true;
+  $('unlock-gate').hidden = false;
+  $('unlock-prompt').textContent = status.prompt || 'Prove you have access to this budget.';
+  const input = $('unlock-input');
+  const err = $('unlock-error');
+  if (status.locked) {
+    const secs = Math.max(0, Math.ceil((status.lockedUntilMs - Date.now()) / 1000));
+    input.disabled = true;
+    err.hidden = false;
+    err.textContent = `Too many attempts. Try again in ~${Math.ceil(secs / 60)} min.`;
+  } else {
+    input.disabled = false;
+    if (message) { err.hidden = false; err.textContent = message; } else { err.hidden = true; }
+    input.focus();
+  }
+}
+
+// After the token is accepted, run the knowledge-challenge step when configured.
 async function tryStart(token) {
   setToken(token);
-  await load();
-  $('token-gate').hidden = true;
-  $('app').hidden = false;
+  setTicket('');
+  const status = await api.unlockStatus();
+  if (status.enabled && !status.bypass) {
+    showUnlockGate(status);
+    return;
+  }
+  if (status.enabled && status.bypass) {
+    await enterApp();
+    toast('Budget unreachable — unlock challenge skipped. Fix the connection, then restart.', 'bad');
+    return;
+  }
+  await enterApp();
 }
 
 function showGate(message) {
   $('app').hidden = true;
+  $('unlock-gate').hidden = true;
   $('token-gate').hidden = false;
   if (message) { const e = $('token-error'); e.hidden = false; e.textContent = message; }
 }
+
+$('unlock-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const answer = $('unlock-input').value;
+  try {
+    const r = await api.unlock(answer);
+    if (r.ok && r.ticket) {
+      setTicket(r.ticket);
+      $('unlock-input').value = '';
+      await enterApp();
+      if (r.bypass) toast('Budget unreachable — answer not verified. Fix the connection.', 'bad');
+    }
+  } catch (err) {
+    const data = err.data || {};
+    if (data.error === 'locked') {
+      showUnlockGate({ ...data, prompt: $('unlock-prompt').textContent, locked: true });
+    } else if (data.error === 'no_match') {
+      $('unlock-input').value = '';
+      const left = data.attemptsRemaining;
+      const erEl = $('unlock-error');
+      erEl.hidden = false;
+      erEl.textContent = `That didn't match. ${left} attempt${left === 1 ? '' : 's'} left.`;
+    } else {
+      const erEl = $('unlock-error');
+      erEl.hidden = false;
+      erEl.textContent = `Error: ${err.message}`;
+    }
+  }
+});
+$('unlock-logout').addEventListener('click', () => { setToken(''); setTicket(''); showGate(); });
 
 window.addEventListener('hashchange', route);
 $('save-btn').addEventListener('click', reviewAndSave);
@@ -515,7 +588,10 @@ $('discard-btn').addEventListener('click', () => {
   Object.keys(fieldErrors).forEach((k) => delete fieldErrors[k]);
   renderMain(); renderSaveBar();
 });
-$('logout').addEventListener('click', () => { setToken(''); showGate(); });
+$('logout').addEventListener('click', () => {
+  api.lock().catch(() => {});
+  setToken(''); setTicket(''); showGate();
+});
 $('token-form').addEventListener('submit', async (e) => {
   e.preventDefault();
   const token = $('token-input').value.trim();

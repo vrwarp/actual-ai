@@ -1,12 +1,15 @@
-// Minimal fetch wrapper. The bearer token lives only in module memory.
+// Minimal fetch wrapper. The bearer token + unlock ticket live only in module memory.
 let token = '';
+let ticket = '';
 
 export function setToken(t) { token = t || ''; }
 export function hasToken() { return !!token; }
+export function setTicket(t) { ticket = t || ''; }
 
 async function call(method, path, body) {
   const opts = { method, headers: {} };
   if (token) opts.headers.Authorization = `Bearer ${token}`;
+  if (ticket) opts.headers['X-Unlock-Ticket'] = ticket;
   if (body !== undefined) {
     opts.headers['Content-Type'] = 'application/json';
     opts.body = JSON.stringify(body);
@@ -24,6 +27,9 @@ async function call(method, path, body) {
 }
 
 export const api = {
+  unlockStatus: () => call('GET', '/api/unlock/status'),
+  unlock: (answer) => call('POST', '/api/unlock', { answer }),
+  lock: () => call('POST', '/api/unlock/lock', {}),
   getConfig: () => call('GET', '/api/config'),
   patchConfig: (patch) => call('PATCH', '/api/config', patch),
   resetPrompt: () => call('POST', '/api/config/reset-prompt', {}),

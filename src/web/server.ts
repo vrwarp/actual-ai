@@ -7,6 +7,9 @@ import {
 } from '../config';
 import { initToken, checkToken, bearerFrom } from './auth';
 import {
+  unlockStatus, verifyAnswer, isUnlocked, revokeTicket,
+} from './unlock';
+import {
   resolveEffective, saveConfig, restorePrevious, SavePatch,
   pendingEnvMap,
 } from './config-store';
@@ -104,6 +107,41 @@ async function handleApi(
   // Auth gate for every /api/* route.
   if (!checkToken(bearerFrom(req.headers.authorization))) {
     sendJson(res, 401, { error: 'unauthorized' });
+    return;
+  }
+
+  // ---- knowledge-challenge unlock ----
+  const ticketHeader = req.headers['x-unlock-ticket'];
+  const ticket = Array.isArray(ticketHeader) ? ticketHeader[0] : ticketHeader;
+
+  if (route === '/api/unlock/status' && method === 'GET') {
+    sendJson(res, 200, await unlockStatus(mockMode, nowMs()));
+    return;
+  }
+  if (route === '/api/unlock' && method === 'POST') {
+    let answer = '';
+    try {
+      const body = JSON.parse(await readBody(req)) as { answer?: string };
+      answer = typeof body.answer === 'string' ? body.answer : '';
+    } catch (e) {
+      if ((e as Error).message === 'body_too_large') { sendJson(res, 413, { error: 'body_too_large' }); return; }
+      sendJson(res, 400, { error: 'invalid_json' });
+      return;
+    }
+    const result = await verifyAnswer(answer, mockMode, nowMs());
+    sendJson(res, result.ok ? 200 : 403, result);
+    return;
+  }
+  if (route === '/api/unlock/lock' && method === 'POST') {
+    revokeTicket(ticket);
+    sendJson(res, 200, { ok: true });
+    return;
+  }
+
+  // Every OTHER route additionally requires the session to be unlocked when a
+  // knowledge challenge is configured (no-op when disabled or in fail-open bypass).
+  if (!await isUnlocked(ticket, mockMode, nowMs())) {
+    sendJson(res, 403, { error: 'locked' });
     return;
   }
 

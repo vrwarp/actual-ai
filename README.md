@@ -80,6 +80,11 @@ How it works & safety:
 - The server binds to **loopback only** and requires a bearer token. Expose it remotely via
   a reverse proxy to `127.0.0.1` or an SSH tunnel (`ssh -L`). Secrets are never sent back to
   the browser (only a "set / not set" flag).
+- **Optional knowledge challenge** (`WEB_UI_UNLOCK_CHALLENGE=account|payee|category`): as a
+  second factor, require the user to enter a value matching their real budget data (an
+  account / payee / category name, pulled read-only from Actual) to unlock the session. The
+  valid answers never leave the server, wrong guesses are rate-limited, and it fails open if
+  Actual is unreachable so you can still reach the editor to fix the connection.
 - A `MOCK_MODE=true` demo mode runs the whole UI against built-in mock data and a mock
   agent — handy for trying it out with no real server or API key.
 
