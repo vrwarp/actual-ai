@@ -51,6 +51,49 @@ FEATURES: '["classifyOnStartup", "syncAccountsBeforeClassify", "freeWebSearch"]'
 
 Re-process transactions previously marked as unclassified.
 
+#### 🖥️ Companion Web UI (config editor + debug interface)
+
+An optional, self-hosted web interface — served by the same binary — for editing
+**every** setting on this page and for debugging your deployment, without hand-editing
+environment variables.
+
+Enable it with `WEB_UI_ENABLED=true` and open the printed URL (default
+`http://127.0.0.1:3001`). On first start an auth token is printed to the logs (or pin
+your own with `WEB_UI_TOKEN`).
+
+What you get:
+
+- **Config editor** — grouped sections (Connection, LLM Provider, Schedule,
+  Categorization, Tools & Rate Limits, Prompt, Writes & Safety) with provider-conditional
+  fields, inline validation, secret masking (keep / replace / clear), a review-diff before
+  saving, and a clear "restart to apply" model.
+- **Debug interface** — view the effective configuration and its source, test the Actual
+  and LLM connections, see the cron next-run times and rate-limiter state, and run a
+  **dry-run preview** that shows how transactions would be categorized.
+
+How it works & safety:
+
+- Edits are persisted to an overlay (`config.json` + `secrets/secrets.json`) under
+  `CONFIG_DIR` (default `/config` — mount it to keep changes). They are layered over your
+  environment at the next start; OS environment variables still win for URLs (shown as
+  "pinned").
+- The server binds to **loopback only** and requires a bearer token. Expose it remotely via
+  a reverse proxy to `127.0.0.1` or an SSH tunnel (`ssh -L`). Secrets are never sent back to
+  the browser (only a "set / not set" flag).
+- A `MOCK_MODE=true` demo mode runs the whole UI against built-in mock data and a mock
+  agent — handy for trying it out with no real server or API key.
+
+```yaml
+    environment:
+      WEB_UI_ENABLED: "true"
+      # WEB_UI_TOKEN: choose-a-strong-token   # optional; otherwise printed to logs
+      CONFIG_DIR: /config
+    volumes:
+      - ./actual-ai-config:/config            # persist edited config + secrets
+    ports:
+      - '127.0.0.1:3001:3001'                 # keep it on loopback
+```
+
 ## 🚀 Usage
 
 Sample `docker-compose.yml` file:

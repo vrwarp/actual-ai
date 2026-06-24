@@ -8,6 +8,7 @@
     "skipLibCheck": true,
     "lib": ["es2020"],
     "outDir": "./dist",
+    "rootDir": ".",
     "baseUrl": ".",
     "paths": {
       "@actual-app/core/src/server/api-models": ["./src/shims/actual-app-core-src-server-api-models"],

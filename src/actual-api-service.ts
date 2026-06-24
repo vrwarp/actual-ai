@@ -140,15 +140,19 @@ class ActualApiService implements ActualApiServiceI {
    * @throws Error if the budget download fails or connection parameters are incorrect.
    */
   public async initializeApi() {
+    // Acquire the cross-process dataDir lock FIRST and outside the try below: if
+    // this throws (another active run holds the lock), we must NOT run the failure
+    // cleanup — we never acquired the lock and would otherwise delete someone
+    // else's lock file.
     this.acquireDataDirLock();
 
-    await this.actualApiClient.init({
-      dataDir: this.dataDir,
-      serverURL: this.serverURL,
-      password: this.password,
-    });
-
     try {
+      await this.actualApiClient.init({
+        dataDir: this.dataDir,
+        serverURL: this.serverURL,
+        password: this.password,
+      });
+
       if (this.e2ePassword) {
         await this.actualApiClient.downloadBudget(this.budgetId, {
           password: this.e2ePassword,
@@ -158,6 +162,9 @@ class ActualApiService implements ActualApiServiceI {
       }
       console.log('Budget downloaded');
     } catch (error: unknown) {
+      // Any failure AFTER we acquired the lock — including a failed init() (bad
+      // server URL / password) from a Web UI connection test — must release the
+      // dataDir lock, or the next scheduled run would refuse to start forever.
       let errorMessage = 'Failed to download budget';
       if (error instanceof Error) {
         errorMessage += `: ${error.message}`;
@@ -168,7 +175,7 @@ class ActualApiService implements ActualApiServiceI {
       console.error(errorMessage);
       console.error('Full error details:', error);
 
-      await this.actualApiClient.shutdown();
+      try { await this.actualApiClient.shutdown(); } catch { /* best-effort */ }
       this.releaseDataDirLock();
 
       throw new Error(`Budget download failed. Verify that:

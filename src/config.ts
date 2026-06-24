@@ -1,10 +1,37 @@
 import dotenv from 'dotenv';
 import fs from 'fs';
+import path from 'path';
 import { parseRateLimitEnv } from './utils/parse-rate-limit-env';
+import { maybeApplyOverlay } from './web/config-store';
 
-const defaultPromptTemplate = fs.readFileSync('./src/templates/prompt.hbs', 'utf8').trim();
+// Resolve the bundled default prompt relative to this module so it works whether
+// running from source (ts-node) or compiled (dist/). Falls back to a tiny template
+// rather than crashing the whole process if the asset is missing.
+function readDefaultPrompt(): string {
+  const candidates = [
+    path.join(__dirname, 'templates', 'prompt.hbs'),
+    path.join(process.cwd(), 'src', 'templates', 'prompt.hbs'),
+  ];
+  const found = candidates.reduce<string | null>((acc, p) => {
+    if (acc !== null) return acc;
+    try {
+      return fs.readFileSync(p, 'utf8').trim();
+    } catch {
+      return null;
+    }
+  }, null);
+  if (found !== null) return found;
+  console.warn('Could not read default prompt template from', candidates.join(' or '));
+  return 'Categorize this transaction:\n{{amount}} {{type}} {{payee}} {{description}}';
+}
+
+const defaultPromptTemplate = readDefaultPrompt();
 
 dotenv.config();
+
+// Layer any Web-UI overlay onto process.env BEFORE the constants below are
+// evaluated. No-op (and touches no filesystem) unless WEB_UI_ENABLED=true.
+maybeApplyOverlay();
 
 export const serverURL = process.env.ACTUAL_SERVER_URL ?? '';
 export const password = process.env.ACTUAL_PASSWORD ?? '';
@@ -256,4 +283,144 @@ export function getEnabledTools(): string[] {
  */
 export function isToolEnabled(toolName: string): boolean {
   return getEnabledTools().includes(toolName);
+}
+
+// ---------------------------------------------------------------------------
+// Web UI companion server settings (bootstrap-only; never editable via the UI).
+// ---------------------------------------------------------------------------
+export const webUiEnabled = process.env.WEB_UI_ENABLED === 'true';
+export const webUiPort = (() => {
+  const p = Number.parseInt(process.env.WEB_UI_PORT ?? '', 10);
+  return Number.isFinite(p) && p > 0 ? p : 3001;
+})();
+export const webUiBindAddress = process.env.WEB_UI_BIND_ADDRESS ?? '127.0.0.1';
+export const mockMode = process.env.MOCK_MODE === 'true';
+
+// ---------------------------------------------------------------------------
+// Resolved configuration object + pure resolver.
+// `resolveConfig` lets the Web UI compute what a PENDING overlay would produce
+// (for the dry-run preview) without mutating the live process.
+// ---------------------------------------------------------------------------
+
+/** Feature-flag snapshot threaded into services. */
+export interface ResolvedFlags {
+  dryRun: boolean;
+  disableRateLimiter: boolean;
+  suggestNewCategories: boolean;
+  rerunMissedTransactions: boolean;
+  syncAccountsBeforeClassify: boolean;
+}
+
+/** Everything `buildContainer` needs to wire the graph. */
+export interface ResolvedConfig {
+  llmProvider: string;
+  openaiApiKey: string; openaiModel: string; openaiBaseURL: string;
+  openrouterApiKey: string; openrouterModel: string; openrouterBaseURL: string;
+  openrouterReferrer: string; openrouterTitle: string; openrouterEnableToolCalling: boolean;
+  anthropicApiKey: string; anthropicModel: string; anthropicBaseURL: string;
+  googleApiKey: string; googleModel: string; googleBaseURL: string;
+  ollamaModel: string; ollamaBaseURL: string;
+  groqApiKey: string; groqModel: string; groqBaseURL: string;
+  serverURL: string; password: string; budgetId: string; e2ePassword: string;
+  dataDir: string;
+  notGuessedTag: string; guessedTag: string; manualOverrideTag: string;
+  promptTemplate: string;
+  batchSize: number; batchDelayMs: number; llmTimeoutMs: number;
+  valueSerpApiKey: string;
+  requestsPerMinuteOverride: number | null;
+  tokensPerMinuteOverride: number | null;
+  enabledTools: string[];
+  flags: ResolvedFlags;
+}
+
+function flagsFor(enabled: string[], env: Record<string, string | undefined>): ResolvedFlags {
+  const has = (name: string) => enabled.includes(name);
+  return {
+    dryRun: has('dryRun'),
+    disableRateLimiter: has('disableRateLimiter'),
+    suggestNewCategories: has('suggestNewCategories'),
+    rerunMissedTransactions: has('rerunMissedTransactions'),
+    syncAccountsBeforeClassify: has('syncAccountsBeforeClassify') || env.SYNC_ACCOUNTS_BEFORE_CLASSIFY === 'true',
+  };
+}
+
+function parseEnabledFeatures(env: Record<string, string | undefined>): string[] {
+  let list: string[] = [];
+  try {
+    if (env.FEATURES) {
+      const parsed = JSON.parse(env.FEATURES) as unknown;
+      if (Array.isArray(parsed)) list = parsed as string[];
+    } else if (env.ENABLED_FEATURES) {
+      const raw = env.ENABLED_FEATURES.trim();
+      if (raw.startsWith('[')) {
+        const parsed = JSON.parse(raw) as unknown;
+        if (Array.isArray(parsed)) list = parsed as string[];
+      } else {
+        list = raw.split(',').map((s) => s.trim()).filter(Boolean);
+      }
+    }
+  } catch {
+    list = [];
+  }
+  const legacyTools = (env.ENABLED_TOOLS ?? '').split(',').map((t) => t.trim()).filter(Boolean);
+  return [...new Set([...list, ...legacyTools])];
+}
+
+/** Pure resolver over an arbitrary env map. */
+export function resolveConfig(env: Record<string, string | undefined>): ResolvedConfig {
+  const orApiKey = env.OPENROUTER_API_KEY ?? '';
+  const parsedTimeout = Number.parseInt(env.LLM_TIMEOUT_MS ?? '', 10);
+  const enabled = parseEnabledFeatures(env);
+  const enabledTools = ['webSearch', 'freeWebSearch'].filter((t) => enabled.includes(t));
+  return {
+    llmProvider: env.LLM_PROVIDER ?? (orApiKey ? 'openrouter' : 'openai'),
+    openaiApiKey: env.OPENAI_API_KEY ?? '',
+    openaiModel: env.OPENAI_MODEL ?? 'gpt-4.1-mini',
+    openaiBaseURL: env.OPENAI_BASE_URL ?? 'https://api.openai.com/v1',
+    openrouterApiKey: orApiKey,
+    openrouterModel: env.OPENROUTER_MODEL ?? 'deepseek/deepseek-v3.2',
+    openrouterBaseURL: env.OPENROUTER_BASE_URL ?? 'https://openrouter.ai/api/v1',
+    openrouterReferrer: env.OPENROUTER_REFERRER ?? env.OPENROUTER_REFERER ?? '',
+    openrouterTitle: env.OPENROUTER_TITLE ?? 'actual-ai',
+    openrouterEnableToolCalling: env.OPENROUTER_ENABLE_TOOL_CALLING === 'true',
+    anthropicApiKey: env.ANTHROPIC_API_KEY ?? '',
+    anthropicModel: env.ANTHROPIC_MODEL ?? 'claude-3-5-sonnet-latest',
+    anthropicBaseURL: env.ANTHROPIC_BASE_URL ?? 'https://api.anthropic.com/v1',
+    googleApiKey: env.GOOGLE_GENERATIVE_AI_API_KEY ?? '',
+    googleModel: env.GOOGLE_GENERATIVE_AI_MODEL ?? env.GOOGLE_GENERATIVE_MODEL ?? 'gemini-1.5-flash',
+    googleBaseURL: env.GOOGLE_GENERATIVE_AI_BASE_URL ?? env.GOOGLE_GENERATIVE_BASE_URL ?? 'https://generativelanguage.googleapis.com/v1beta',
+    ollamaModel: env.OLLAMA_MODEL ?? 'llama3.1',
+    ollamaBaseURL: env.OLLAMA_BASE_URL ?? 'http://localhost:11434/api',
+    groqApiKey: env.GROQ_API_KEY ?? '',
+    groqModel: env.GROQ_MODEL ?? 'llama-3.3-70b-versatile',
+    groqBaseURL: env.GROQ_BASE_URL ?? 'https://api.groq.com/openai/v1',
+    serverURL: env.ACTUAL_SERVER_URL ?? '',
+    password: env.ACTUAL_PASSWORD ?? '',
+    budgetId: env.ACTUAL_BUDGET_ID ?? '',
+    e2ePassword: env.ACTUAL_E2E_PASSWORD ?? '',
+    dataDir,
+    notGuessedTag: env.NOT_GUESSED_TAG ?? '#actual-ai-miss',
+    guessedTag: env.GUESSED_TAG ?? '#actual-ai',
+    manualOverrideTag: env.MANUAL_OVERRIDE_TAG ?? '#actual-ai-override',
+    promptTemplate: env.PROMPT_TEMPLATE ?? defaultPromptTemplate,
+    batchSize: parseInt(env.BATCH_SIZE ?? '20', 10),
+    batchDelayMs: parseInt(env.BATCH_DELAY_MS ?? '2000', 10),
+    llmTimeoutMs: Number.isFinite(parsedTimeout) && parsedTimeout > 0 ? parsedTimeout : 120_000,
+    valueSerpApiKey: env.VALUESERP_API_KEY ?? '',
+    requestsPerMinuteOverride: parseRateLimitEnv(env.REQUESTS_PER_MINUTE, 'REQUESTS_PER_MINUTE'),
+    tokensPerMinuteOverride: parseRateLimitEnv(env.TOKENS_PER_MINUTE, 'TOKENS_PER_MINUTE'),
+    enabledTools,
+    flags: flagsFor(enabled, env),
+  };
+}
+
+/** Live feature-flag snapshot from the global flag registry. */
+export function liveFlags(): ResolvedFlags {
+  return {
+    dryRun: isFeatureEnabled('dryRun'),
+    disableRateLimiter: isFeatureEnabled('disableRateLimiter'),
+    suggestNewCategories: isFeatureEnabled('suggestNewCategories'),
+    rerunMissedTransactions: isFeatureEnabled('rerunMissedTransactions'),
+    syncAccountsBeforeClassify: isFeatureEnabled('syncAccountsBeforeClassify'),
+  };
 }

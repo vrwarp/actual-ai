@@ -5,3 +5,10 @@ dist/
 .env
 *.log
 coverage/
+
+# Web UI companion: runtime config overlay, secrets and dev state
+config/
+.config-dev/
+**/secrets/
+.web-ui-token
+config.json.prev
