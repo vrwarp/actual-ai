@@ -298,19 +298,22 @@ export const mockMode = process.env.MOCK_MODE === 'true';
 
 /**
  * Optional knowledge-challenge unlock for the Web UI. When set to a data kind, the
- * user must enter a value that matches their real budget data (pulled read-only
- * from Actual) to unlock the session — a second factor on top of the bearer token.
- *   'off'      — disabled (default)
- *   'account'  — must match one of the budget's account names
- *   'payee'    — must match one of the budget's payee names
- *   'category' — must match one of the budget's category names
+ * user can unlock the session by entering a value that matches their real budget
+ * data (pulled read-only from Actual) — an ALTERNATIVE to the bearer token. The
+ * token still works (and is the fallback when the budget is unreachable).
+ *   'off'         — disabled (default)
+ *   'transaction' — must match the payee + amount of a recent transaction (recommended)
+ *   'account'     — must match one of the budget's account names
+ *   'payee'       — must match one of the budget's payee names
+ *   'category'    — must match one of the budget's category names
  */
 const challengeRaw = (process.env.WEB_UI_UNLOCK_CHALLENGE ?? 'off').trim().toLowerCase();
-export const webUiUnlockChallenge: 'off' | 'account' | 'payee' | 'category' = (
-  ['account', 'payee', 'category'].includes(challengeRaw)
+export type UnlockChallengeKind = 'off' | 'transaction' | 'account' | 'payee' | 'category';
+export const webUiUnlockChallenge: UnlockChallengeKind = (
+  ['transaction', 'account', 'payee', 'category'].includes(challengeRaw)
     ? challengeRaw
     : 'off'
-) as 'off' | 'account' | 'payee' | 'category';
+) as UnlockChallengeKind;
 
 // ---------------------------------------------------------------------------
 // Resolved configuration object + pure resolver.

@@ -7,7 +7,7 @@ import {
 } from '../config';
 import { initToken, checkToken, bearerFrom } from './auth';
 import {
-  unlockStatus, verifyAnswer, isUnlocked, revokeTicket,
+  unlockStatus, verifyAnswer, validTicket, revokeTicket, UnlockPayload,
 } from './unlock';
 import {
   resolveEffective, saveConfig, restorePrevious, SavePatch,
@@ -104,31 +104,26 @@ async function handleApi(
 
   if (method === 'OPTIONS') { res.statusCode = 403; res.end(); return; }
 
-  // Auth gate for every /api/* route.
-  if (!checkToken(bearerFrom(req.headers.authorization))) {
-    sendJson(res, 401, { error: 'unauthorized' });
-    return;
-  }
-
-  // ---- knowledge-challenge unlock ----
   const ticketHeader = req.headers['x-unlock-ticket'];
   const ticket = Array.isArray(ticketHeader) ? ticketHeader[0] : ticketHeader;
 
+  // ---- knowledge-challenge unlock (PUBLIC login surface) ----
+  // These are reachable without a token because the data challenge is an
+  // ALTERNATIVE way to authenticate. Brute force is bounded by the lockout.
   if (route === '/api/unlock/status' && method === 'GET') {
     sendJson(res, 200, await unlockStatus(mockMode, nowMs()));
     return;
   }
   if (route === '/api/unlock' && method === 'POST') {
-    let answer = '';
+    let payload: UnlockPayload = {};
     try {
-      const body = JSON.parse(await readBody(req)) as { answer?: string };
-      answer = typeof body.answer === 'string' ? body.answer : '';
+      payload = JSON.parse(await readBody(req)) as UnlockPayload;
     } catch (e) {
       if ((e as Error).message === 'body_too_large') { sendJson(res, 413, { error: 'body_too_large' }); return; }
       sendJson(res, 400, { error: 'invalid_json' });
       return;
     }
-    const result = await verifyAnswer(answer, mockMode, nowMs());
+    const result = await verifyAnswer(payload, mockMode, nowMs());
     sendJson(res, result.ok ? 200 : 403, result);
     return;
   }
@@ -138,10 +133,11 @@ async function handleApi(
     return;
   }
 
-  // Every OTHER route additionally requires the session to be unlocked when a
-  // knowledge challenge is configured (no-op when disabled or in fail-open bypass).
-  if (!await isUnlocked(ticket, mockMode, nowMs())) {
-    sendJson(res, 403, { error: 'locked' });
+  // Auth gate for every other /api/* route: a valid bearer token OR a valid
+  // unlock ticket grants access.
+  const authorized = checkToken(bearerFrom(req.headers.authorization)) || validTicket(ticket, nowMs());
+  if (!authorized) {
+    sendJson(res, 401, { error: 'unauthorized' });
     return;
   }
 

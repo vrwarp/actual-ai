@@ -16,6 +16,7 @@
         <button type="submit">Unlock</button>
       </form>
       <p id="token-error" class="error-text" role="alert" hidden></p>
+      <button id="use-challenge-btn" class="ghost-btn" type="button" hidden>Unlock with budget data instead</button>
     </div>
   </div>
 
@@ -24,11 +25,11 @@
       <h1>🔐 Unlock</h1>
       <p id="unlock-prompt">Prove you have access to this budget.</p>
       <form id="unlock-form">
-        <input id="unlock-input" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Your answer" aria-label="Challenge answer" />
+        <div id="unlock-fields"></div>
         <button type="submit">Unlock</button>
       </form>
       <p id="unlock-error" class="error-text" role="alert" hidden></p>
-      <button id="unlock-logout" class="ghost-btn" type="button" style="margin-top:12px">Use a different token</button>
+      <button id="use-token-btn" class="ghost-btn" type="button">Use token instead</button>
     </div>
   </div>
 

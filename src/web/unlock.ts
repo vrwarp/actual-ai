@@ -12,37 +12,47 @@ import { MockActualApiService } from './mocks/mock-actual-api';
 /**
  * Knowledge-challenge session unlock.
  *
- * When enabled, the operator must enter a value that matches their real budget
- * data (account / payee / category name pulled read-only from Actual) before the
- * Web UI session is unlocked — a second factor layered on the bearer token that
- * proves the user actually has access to the underlying budget.
+ * When enabled, the operator can unlock the Web UI by entering a value that
+ * matches their real budget data (pulled read-only from Actual) — proving they
+ * actually have access to the underlying budget. This is an ALTERNATIVE to the
+ * bearer token: either one unlocks a session. The token remains the fallback
+ * (bootstrap, headless use, or when the budget is unreachable).
  *
  * Safety properties:
  *  - The valid answers are NEVER sent to the client; only membership is checked
- *    server-side, normalized (trim / lowercase / collapse whitespace).
+ *    server-side, normalized (trim / lowercase / collapse whitespace; amounts to
+ *    absolute cents).
  *  - Brute force is bounded by a lockout (N attempts per window).
- *  - Unlock grants a short-lived in-memory ticket; nothing is persisted.
- *  - FAIL-OPEN: if the dataset can't be fetched (Actual down/misconfigured), the
- *    challenge is bypassed so the operator can still reach the editor to FIX the
- *    config. The bypass is surfaced in the status so it's never silent.
+ *  - A correct answer grants a short-lived in-memory ticket; nothing is persisted.
+ *  - If the budget is unreachable the challenge reports `bypass` and verification
+ *    is unavailable — the user falls back to the bearer token (we never grant a
+ *    ticket without a real check).
  */
 
 const LOCKOUT_MAX = 5;
 const LOCKOUT_WINDOW_MS = 15 * 60 * 1000;
 const TICKET_TTL_MS = 12 * 60 * 60 * 1000;
 const DATASET_TTL_MS = 5 * 60 * 1000;
+const RECENT_TXN_COUNT = 25;
 
-type ChallengeKind = 'account' | 'payee' | 'category';
+type ChallengeKind = 'transaction' | 'account' | 'payee' | 'category';
 
 const PROMPTS: Record<ChallengeKind, string> = {
+  transaction: 'Enter the payee and amount of one of your recent transactions.',
   account: 'Enter the name of one of your Actual accounts (exactly as it appears in your budget).',
   payee: 'Enter the name of one of the payees in your budget.',
   category: 'Enter the name of one of your budget categories.',
 };
 
+export interface UnlockPayload {
+  answer?: string;
+  payee?: string;
+  amount?: string;
+}
+
 interface DatasetCache {
   fetchedAtMs: number;
-  values: Set<string>; // normalized
+  values: Set<string>; // normalized keys
 }
 
 let datasetCache: DatasetCache | null = null;
@@ -67,21 +77,48 @@ function normalize(s: string): string {
   return s.trim().toLowerCase().replace(/\s+/g, ' ');
 }
 
-async function fetchNames(mock: boolean): Promise<Set<string> | null> {
+/** Parse a user-entered dollar amount to absolute integer cents, or null. */
+function absCents(input: string): number | null {
+  const cleaned = input.replace(/[$,\s]/g, '');
+  if (!/^-?\d+(\.\d{1,2})?$/.test(cleaned)) return null;
+  return Math.round(Math.abs(parseFloat(cleaned)) * 100);
+}
+
+function txnKey(payeeName: string, amountCents: number): string {
+  return `${normalize(payeeName)}|${Math.abs(amountCents)}`;
+}
+
+async function collectKeys(svc: ActualApiServiceI, kind: ChallengeKind): Promise<string[]> {
+  if (kind === 'account') return (await svc.getAccounts()).map((a) => normalize(a.name)).filter(Boolean);
+  if (kind === 'payee') return (await svc.getPayees()).map((p) => normalize(p.name)).filter(Boolean);
+  if (kind === 'category') {
+    const cats = await svc.getCategories();
+    return cats.map((c) => (c as { name?: string }).name)
+      .filter((n): n is string => !!n).map(normalize);
+  }
+  // transaction: keys for the most recent transactions (payee + amount, sign-agnostic)
+  const [transactions, payees] = await Promise.all([svc.getTransactions(), svc.getPayees()]);
+  const payeeName = new Map(payees.map((p) => [p.id, p.name]));
+  const recent = [...transactions]
+    .filter((t) => t.transfer_id === null || t.transfer_id === undefined)
+    .sort((a, b) => (a.date < b.date ? 1 : -1))
+    .slice(0, RECENT_TXN_COUNT);
+  const keys: string[] = [];
+  for (const t of recent) {
+    const name = (t.payee && payeeName.get(t.payee)) || t.imported_payee || '';
+    if (name) keys.push(txnKey(name, t.amount));
+    // also accept the raw imported payee string as an alternative
+    if (t.imported_payee && t.imported_payee !== name) keys.push(txnKey(t.imported_payee, t.amount));
+  }
+  return keys;
+}
+
+async function fetchDataset(mock: boolean): Promise<Set<string> | null> {
   const kind = challengeKind();
   if (!kind) return null;
 
-  const collect = async (svc: ActualApiServiceI): Promise<string[]> => {
-    if (kind === 'account') return (await svc.getAccounts()).map((a) => a.name);
-    if (kind === 'payee') return (await svc.getPayees()).map((p) => p.name);
-    // category: flatten groups + standalone categories, keep entries that have a name
-    const cats = await svc.getCategories();
-    return cats.map((c) => (c as { name?: string }).name).filter((n): n is string => !!n);
-  };
-
   if (mock) {
-    const names = await collect(new MockActualApiService());
-    return new Set(names.map(normalize).filter(Boolean));
+    return new Set(await collectKeys(new MockActualApiService(), kind));
   }
 
   const cfg = resolveConfig(pendingEnvMap());
@@ -90,11 +127,11 @@ async function fetchNames(mock: boolean): Promise<Set<string> | null> {
   const svc = new ActualApiService(actualApiClient, fs, scratch, cfg.serverURL, cfg.password, cfg.budgetId, cfg.e2ePassword, true);
   try {
     await svc.initializeApi();
-    const names = await collect(svc);
+    const keys = await collectKeys(svc, kind);
     await svc.shutdownApi();
-    return new Set(names.map(normalize).filter(Boolean));
+    return new Set(keys);
   } catch {
-    return null; // unreachable → caller treats as bypass
+    return null; // unreachable → caller reports bypass; user falls back to token
   } finally {
     try { fs.rmSync(scratch, { recursive: true, force: true }); } catch { /* best-effort */ }
   }
@@ -104,10 +141,24 @@ async function ensureDataset(mock: boolean, nowMs: number): Promise<Set<string> 
   if (datasetCache && nowMs - datasetCache.fetchedAtMs < DATASET_TTL_MS) {
     return datasetCache.values;
   }
-  const values = await fetchNames(mock);
+  const values = await fetchDataset(mock);
   if (values === null) return null;
   datasetCache = { fetchedAtMs: nowMs, values };
   return values;
+}
+
+/** Compute the normalized lookup key for a submitted payload, or null if malformed. */
+function keyForPayload(payload: UnlockPayload): string | null {
+  const kind = challengeKind();
+  if (!kind) return null;
+  if (kind === 'transaction') {
+    const payee = (payload.payee ?? '').trim();
+    const cents = absCents(payload.amount ?? '');
+    if (!payee || cents === null) return null;
+    return txnKey(payee, cents);
+  }
+  const answer = (payload.answer ?? '').trim();
+  return answer ? normalize(answer) : null;
 }
 
 export interface UnlockStatus {
@@ -117,10 +168,10 @@ export interface UnlockStatus {
   locked: boolean;
   lockedUntilMs: number;
   attemptsRemaining: number;
-  bypass: boolean; // dataset unreachable → challenge skipped
+  bypass: boolean; // dataset unreachable → use the token instead
 }
 
-/** Status for the unlock gate (does not leak any answers). */
+/** Status for the unlock gate (never leaks any answers). */
 export async function unlockStatus(mock: boolean, nowMs: number): Promise<UnlockStatus> {
   const enabled = unlockEnabled();
   const base: UnlockStatus = {
@@ -133,18 +184,16 @@ export async function unlockStatus(mock: boolean, nowMs: number): Promise<Unlock
     bypass: false,
   };
   if (!enabled) return base;
-  const dataset = await ensureDataset(mock, nowMs);
-  base.bypass = dataset === null;
+  base.bypass = (await ensureDataset(mock, nowMs)) === null;
   return base;
 }
 
 export interface VerifyResult {
   ok: boolean;
   ticket?: string;
-  error?: 'locked' | 'no_match' | 'unavailable' | 'disabled';
+  error?: 'locked' | 'no_match' | 'unavailable' | 'disabled' | 'bad_input';
   attemptsRemaining?: number;
   lockedUntilMs?: number;
-  bypass?: boolean;
 }
 
 function issueTicket(nowMs: number): string {
@@ -153,21 +202,7 @@ function issueTicket(nowMs: number): string {
   return ticket;
 }
 
-/** Verify a submitted answer against the budget dataset. */
-export async function verifyAnswer(answer: string, mock: boolean, nowMs: number): Promise<VerifyResult> {
-  if (!unlockEnabled()) return { ok: false, error: 'disabled' };
-  if (nowMs < lockedUntilMs) {
-    return { ok: false, error: 'locked', lockedUntilMs };
-  }
-  const dataset = await ensureDataset(mock, nowMs);
-  if (dataset === null) {
-    // Fail-open: can't verify, so grant a ticket but mark bypass so the UI warns.
-    return { ok: true, ticket: issueTicket(nowMs), bypass: true };
-  }
-  if (dataset.has(normalize(answer))) {
-    attempts = 0;
-    return { ok: true, ticket: issueTicket(nowMs) };
-  }
+function registerFailure(nowMs: number): VerifyResult {
   attempts += 1;
   if (attempts >= LOCKOUT_MAX) {
     lockedUntilMs = nowMs + LOCKOUT_WINDOW_MS;
@@ -177,16 +212,32 @@ export async function verifyAnswer(answer: string, mock: boolean, nowMs: number)
   return { ok: false, error: 'no_match', attemptsRemaining: LOCKOUT_MAX - attempts };
 }
 
-/**
- * Whether a request is allowed past the unlock gate.
- * - challenge disabled → always allowed
- * - dataset unreachable (bypass) → allowed (fail-open)
- * - otherwise → requires a valid, unexpired ticket
- */
-export async function isUnlocked(ticket: string | undefined, mock: boolean, nowMs: number): Promise<boolean> {
-  if (!unlockEnabled()) return true;
+/** Verify a submitted payload against the budget dataset. */
+export async function verifyAnswer(
+  payload: UnlockPayload,
+  mock: boolean,
+  nowMs: number,
+): Promise<VerifyResult> {
+  if (!unlockEnabled()) return { ok: false, error: 'disabled' };
+  if (nowMs < lockedUntilMs) return { ok: false, error: 'locked', lockedUntilMs };
+
   const dataset = await ensureDataset(mock, nowMs);
-  if (dataset === null) return true; // fail-open
+  // Never grant a ticket without a real check: if the budget is unreachable the
+  // user must use the bearer token instead.
+  if (dataset === null) return { ok: false, error: 'unavailable' };
+
+  const key = keyForPayload(payload);
+  if (key === null) return { ok: false, error: 'bad_input' };
+
+  if (dataset.has(key)) {
+    attempts = 0;
+    return { ok: true, ticket: issueTicket(nowMs) };
+  }
+  return registerFailure(nowMs);
+}
+
+/** Pure ticket validity check (no dataset fetch). */
+export function validTicket(ticket: string | undefined, nowMs: number): boolean {
   if (!ticket) return false;
   const expiry = tickets.get(ticket);
   if (!expiry) return false;

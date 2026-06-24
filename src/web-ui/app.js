@@ -496,6 +496,8 @@ async function load() {
 }
 
 // ---------------- boot ----------------
+let unlockState = { enabled: false, kind: null };
+
 function hideAllGates() {
   $('token-gate').hidden = true;
   $('unlock-gate').hidden = true;
@@ -507,78 +509,107 @@ async function enterApp() {
   $('app').hidden = false;
 }
 
+// Build the unlock form fields appropriate to the challenge kind.
+function renderUnlockFields(kind) {
+  const wrap = $('unlock-fields');
+  wrap.replaceChildren();
+  if (kind === 'transaction') {
+    wrap.appendChild(el('input', {
+      id: 'unlock-payee', type: 'text', placeholder: 'Payee (e.g. Whole Foods Market)', autocomplete: 'off', autocapitalize: 'off', spellcheck: false, 'aria-label': 'Payee',
+    }));
+    wrap.appendChild(el('input', {
+      id: 'unlock-amount', type: 'text', inputmode: 'decimal', placeholder: 'Amount (e.g. 54.21)', autocomplete: 'off', 'aria-label': 'Amount',
+    }));
+  } else {
+    wrap.appendChild(el('input', {
+      id: 'unlock-answer', type: 'text', placeholder: 'Your answer', autocomplete: 'off', autocapitalize: 'off', spellcheck: false, 'aria-label': 'Challenge answer',
+    }));
+  }
+}
+
+function unlockPayload() {
+  if (unlockState.kind === 'transaction') {
+    return { payee: ($('unlock-payee')?.value ?? ''), amount: ($('unlock-amount')?.value ?? '') };
+  }
+  return { answer: ($('unlock-answer')?.value ?? '') };
+}
+
 function showUnlockGate(status, message) {
+  unlockState = status;
   $('app').hidden = true;
   $('token-gate').hidden = true;
   $('unlock-gate').hidden = false;
   $('unlock-prompt').textContent = status.prompt || 'Prove you have access to this budget.';
-  const input = $('unlock-input');
+  renderUnlockFields(status.kind);
   const err = $('unlock-error');
+  const fields = $('unlock-fields').querySelectorAll('input');
   if (status.locked) {
     const secs = Math.max(0, Math.ceil((status.lockedUntilMs - Date.now()) / 1000));
-    input.disabled = true;
+    fields.forEach((f) => { f.disabled = true; });
     err.hidden = false;
-    err.textContent = `Too many attempts. Try again in ~${Math.ceil(secs / 60)} min.`;
+    err.textContent = `Too many attempts. Try again in ~${Math.max(1, Math.ceil(secs / 60))} min, or use your token.`;
   } else {
-    input.disabled = false;
+    fields.forEach((f) => { f.disabled = false; });
     if (message) { err.hidden = false; err.textContent = message; } else { err.hidden = true; }
-    input.focus();
+    if (fields[0]) fields[0].focus();
   }
-}
-
-// After the token is accepted, run the knowledge-challenge step when configured.
-async function tryStart(token) {
-  setToken(token);
-  setTicket('');
-  const status = await api.unlockStatus();
-  if (status.enabled && !status.bypass) {
-    showUnlockGate(status);
-    return;
-  }
-  if (status.enabled && status.bypass) {
-    await enterApp();
-    toast('Budget unreachable — unlock challenge skipped. Fix the connection, then restart.', 'bad');
-    return;
-  }
-  await enterApp();
 }
 
 function showGate(message) {
   $('app').hidden = true;
   $('unlock-gate').hidden = true;
   $('token-gate').hidden = false;
-  if (message) { const e = $('token-error'); e.hidden = false; e.textContent = message; }
+  // Offer the data-challenge alternative only when it's actually available.
+  $('use-challenge-btn').hidden = !(unlockState.enabled && !unlockState.bypass);
+  const e = $('token-error');
+  if (message) { e.hidden = false; e.textContent = message; } else { e.hidden = true; }
+  $('token-input').focus();
+}
+
+// Entry point: decide which gate to show based on the (public) unlock status.
+async function boot() {
+  activeSection = window.location.hash.replace('#/', '') || 'debug';
+  try {
+    unlockState = await api.unlockStatus();
+  } catch {
+    unlockState = { enabled: false };
+  }
+  if (unlockState.enabled && !unlockState.bypass) showUnlockGate(unlockState);
+  else if (unlockState.enabled && unlockState.bypass) showGate('Budget unreachable — sign in with your token. (Fix the connection to use the data challenge.)');
+  else showGate();
 }
 
 $('unlock-form').addEventListener('submit', async (e) => {
   e.preventDefault();
-  const answer = $('unlock-input').value;
+  setToken('');
   try {
-    const r = await api.unlock(answer);
+    const r = await api.unlock(unlockPayload());
     if (r.ok && r.ticket) {
       setTicket(r.ticket);
-      $('unlock-input').value = '';
       await enterApp();
-      if (r.bypass) toast('Budget unreachable — answer not verified. Fix the connection.', 'bad');
     }
   } catch (err) {
     const data = err.data || {};
+    const erEl = $('unlock-error');
     if (data.error === 'locked') {
-      showUnlockGate({ ...data, prompt: $('unlock-prompt').textContent, locked: true });
+      showUnlockGate({ ...unlockState, locked: true, lockedUntilMs: data.lockedUntilMs });
     } else if (data.error === 'no_match') {
-      $('unlock-input').value = '';
       const left = data.attemptsRemaining;
-      const erEl = $('unlock-error');
       erEl.hidden = false;
-      erEl.textContent = `That didn't match. ${left} attempt${left === 1 ? '' : 's'} left.`;
+      erEl.textContent = `That didn't match. ${left} attempt${left === 1 ? '' : 's'} left, or use your token.`;
+    } else if (data.error === 'bad_input') {
+      erEl.hidden = false;
+      erEl.textContent = 'Enter both a payee and a numeric amount.';
+    } else if (data.error === 'unavailable') {
+      showGate('Budget unreachable — sign in with your token.');
     } else {
-      const erEl = $('unlock-error');
       erEl.hidden = false;
       erEl.textContent = `Error: ${err.message}`;
     }
   }
 });
-$('unlock-logout').addEventListener('click', () => { setToken(''); setTicket(''); showGate(); });
+$('use-token-btn').addEventListener('click', () => { setTicket(''); showGate(); });
+$('use-challenge-btn').addEventListener('click', () => { setToken(''); showUnlockGate(unlockState); });
 
 window.addEventListener('hashchange', route);
 $('save-btn').addEventListener('click', reviewAndSave);
@@ -595,11 +626,15 @@ $('logout').addEventListener('click', () => {
 $('token-form').addEventListener('submit', async (e) => {
   e.preventDefault();
   const token = $('token-input').value.trim();
-  try { activeSection = (window.location.hash.replace('#/', '') || 'debug'); await tryStart(token); } catch (err) {
+  setTicket('');
+  setToken(token);
+  try {
+    await enterApp();
+  } catch (err) {
     showGate(err.status === 401 ? 'Invalid token.' : `Error: ${err.message}`);
   }
 });
 window.addEventListener('beforeunload', (e) => { if (dirtyCount() > 0) { e.preventDefault(); e.returnValue = ''; } });
 
-// Always start at the gate (token only lives in memory).
-showGate();
+// Decide the initial gate from the (public) unlock status; token lives only in memory.
+boot();

@@ -28,7 +28,7 @@ async function call(method, path, body) {
 
 export const api = {
   unlockStatus: () => call('GET', '/api/unlock/status'),
-  unlock: (answer) => call('POST', '/api/unlock', { answer }),
+  unlock: (payload) => call('POST', '/api/unlock', payload),
   lock: () => call('POST', '/api/unlock/lock', {}),
   getConfig: () => call('GET', '/api/config'),
   patchConfig: (patch) => call('PATCH', '/api/config', patch),

@@ -41,6 +41,9 @@ body {
 .gate-card p { color: var(--muted); }
 #token-form { display: flex; gap: 8px; margin-top: 16px; }
 #token-input { flex: 1; }
+#unlock-form { display: flex; flex-direction: column; gap: 8px; margin-top: 16px; }
+#unlock-fields { display: flex; flex-direction: column; gap: 8px; }
+.gate-card .ghost-btn { margin-top: 12px; }
 
 /* ---- topbar ---- */
 .topbar {
