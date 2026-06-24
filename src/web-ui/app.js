@@ -509,17 +509,23 @@ async function enterApp() {
   $('app').hidden = false;
 }
 
+// How many transaction pairs the challenge asks for (kept in sync with the server).
+const TXN_PAIRS = 2;
+
 // Build the unlock form fields appropriate to the challenge kind.
 function renderUnlockFields(kind) {
   const wrap = $('unlock-fields');
   wrap.replaceChildren();
   if (kind === 'transaction') {
-    wrap.appendChild(el('input', {
-      id: 'unlock-payee', type: 'text', placeholder: 'Payee (e.g. Whole Foods Market)', autocomplete: 'off', autocapitalize: 'off', spellcheck: false, 'aria-label': 'Payee',
-    }));
-    wrap.appendChild(el('input', {
-      id: 'unlock-amount', type: 'text', inputmode: 'decimal', placeholder: 'Amount (e.g. 54.21)', autocomplete: 'off', 'aria-label': 'Amount',
-    }));
+    for (let i = 0; i < TXN_PAIRS; i += 1) {
+      wrap.appendChild(el('div', { class: 'unlock-group-label', text: `Transaction ${i + 1}` }));
+      wrap.appendChild(el('input', {
+        id: `unlock-payee-${i}`, type: 'text', placeholder: 'Payee (e.g. Whole Foods Market)', autocomplete: 'off', autocapitalize: 'off', spellcheck: false, 'aria-label': `Transaction ${i + 1} payee`,
+      }));
+      wrap.appendChild(el('input', {
+        id: `unlock-amount-${i}`, type: 'text', inputmode: 'decimal', placeholder: 'Amount (e.g. 54.21)', autocomplete: 'off', 'aria-label': `Transaction ${i + 1} amount`,
+      }));
+    }
   } else {
     wrap.appendChild(el('input', {
       id: 'unlock-answer', type: 'text', placeholder: 'Your answer', autocomplete: 'off', autocapitalize: 'off', spellcheck: false, 'aria-label': 'Challenge answer',
@@ -529,7 +535,14 @@ function renderUnlockFields(kind) {
 
 function unlockPayload() {
   if (unlockState.kind === 'transaction') {
-    return { payee: ($('unlock-payee')?.value ?? ''), amount: ($('unlock-amount')?.value ?? '') };
+    const transactions = [];
+    for (let i = 0; i < TXN_PAIRS; i += 1) {
+      transactions.push({
+        payee: ($(`unlock-payee-${i}`)?.value ?? ''),
+        amount: ($(`unlock-amount-${i}`)?.value ?? ''),
+      });
+    }
+    return { transactions };
   }
   return { answer: ($('unlock-answer')?.value ?? '') };
 }
@@ -599,7 +612,12 @@ $('unlock-form').addEventListener('submit', async (e) => {
       erEl.textContent = `That didn't match. ${left} attempt${left === 1 ? '' : 's'} left, or use your token.`;
     } else if (data.error === 'bad_input') {
       erEl.hidden = false;
-      erEl.textContent = 'Enter both a payee and a numeric amount.';
+      erEl.textContent = unlockState.kind === 'transaction'
+        ? 'Enter a payee and a numeric amount for both transactions.'
+        : 'Enter both a payee and a numeric amount.';
+    } else if (data.error === 'duplicate') {
+      erEl.hidden = false;
+      erEl.textContent = 'Please enter two different transactions.';
     } else if (data.error === 'unavailable') {
       showGate('Budget unreachable — sign in with your token.');
     } else {

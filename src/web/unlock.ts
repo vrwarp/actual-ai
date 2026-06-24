@@ -37,17 +37,24 @@ const RECENT_TXN_COUNT = 25;
 
 type ChallengeKind = 'transaction' | 'account' | 'payee' | 'category';
 
+/** How many distinct recent transactions the 'transaction' challenge requires. */
+export const TXN_PAIRS_REQUIRED = 2;
+
 const PROMPTS: Record<ChallengeKind, string> = {
-  transaction: 'Enter the payee and amount of one of your recent transactions.',
+  transaction: `Enter the payee and amount of ${TXN_PAIRS_REQUIRED} different recent transactions.`,
   account: 'Enter the name of one of your Actual accounts (exactly as it appears in your budget).',
   payee: 'Enter the name of one of the payees in your budget.',
   category: 'Enter the name of one of your budget categories.',
 };
 
-export interface UnlockPayload {
-  answer?: string;
+export interface TxnPair {
   payee?: string;
   amount?: string;
+}
+
+export interface UnlockPayload {
+  answer?: string;
+  transactions?: TxnPair[];
 }
 
 interface DatasetCache {
@@ -147,18 +154,28 @@ async function ensureDataset(mock: boolean, nowMs: number): Promise<Set<string> 
   return values;
 }
 
-/** Compute the normalized lookup key for a submitted payload, or null if malformed. */
-function keyForPayload(payload: UnlockPayload): string | null {
-  const kind = challengeKind();
-  if (!kind) return null;
-  if (kind === 'transaction') {
-    const payee = (payload.payee ?? '').trim();
-    const cents = absCents(payload.amount ?? '');
-    if (!payee || cents === null) return null;
-    return txnKey(payee, cents);
-  }
+/** Normalized key for a single name-based answer, or null if empty. */
+function nameKey(payload: UnlockPayload): string | null {
   const answer = (payload.answer ?? '').trim();
   return answer ? normalize(answer) : null;
+}
+
+/**
+ * Keys for the transaction challenge: requires TXN_PAIRS_REQUIRED well-formed,
+ * DISTINCT pairs (like a bank's two-micro-deposit verification).
+ */
+function txnKeys(payload: UnlockPayload): { keys?: string[]; error?: 'bad_input' | 'duplicate' } {
+  const pairs = payload.transactions ?? [];
+  if (pairs.length < TXN_PAIRS_REQUIRED) return { error: 'bad_input' };
+  const keys: string[] = [];
+  for (const pair of pairs.slice(0, TXN_PAIRS_REQUIRED)) {
+    const payee = (pair.payee ?? '').trim();
+    const cents = absCents(pair.amount ?? '');
+    if (!payee || cents === null) return { error: 'bad_input' };
+    keys.push(txnKey(payee, cents));
+  }
+  if (new Set(keys).size !== keys.length) return { error: 'duplicate' };
+  return { keys };
 }
 
 export interface UnlockStatus {
@@ -191,7 +208,7 @@ export async function unlockStatus(mock: boolean, nowMs: number): Promise<Unlock
 export interface VerifyResult {
   ok: boolean;
   ticket?: string;
-  error?: 'locked' | 'no_match' | 'unavailable' | 'disabled' | 'bad_input';
+  error?: 'locked' | 'no_match' | 'unavailable' | 'disabled' | 'bad_input' | 'duplicate';
   attemptsRemaining?: number;
   lockedUntilMs?: number;
 }
@@ -226,10 +243,19 @@ export async function verifyAnswer(
   // user must use the bearer token instead.
   if (dataset === null) return { ok: false, error: 'unavailable' };
 
-  const key = keyForPayload(payload);
-  if (key === null) return { ok: false, error: 'bad_input' };
+  let keys: string[];
+  if (challengeKind() === 'transaction') {
+    const parsed = txnKeys(payload);
+    // Malformed/duplicate input is rejected WITHOUT consuming a lockout attempt.
+    if (parsed.error) return { ok: false, error: parsed.error };
+    keys = parsed.keys!;
+  } else {
+    const key = nameKey(payload);
+    if (key === null) return { ok: false, error: 'bad_input' };
+    keys = [key];
+  }
 
-  if (dataset.has(key)) {
+  if (keys.every((k) => dataset.has(k))) {
     attempts = 0;
     return { ok: true, ticket: issueTicket(nowMs) };
   }

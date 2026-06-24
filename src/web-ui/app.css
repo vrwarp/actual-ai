@@ -43,6 +43,7 @@ body {
 #token-input { flex: 1; }
 #unlock-form { display: flex; flex-direction: column; gap: 8px; margin-top: 16px; }
 #unlock-fields { display: flex; flex-direction: column; gap: 8px; }
+.unlock-group-label { text-align: left; font-size: 12px; font-weight: 600; color: var(--muted); margin-top: 6px; }
 .gate-card .ghost-btn { margin-top: 12px; }
 
 /* ---- topbar ---- */
