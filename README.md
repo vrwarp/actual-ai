@@ -82,8 +82,9 @@ How it works & safety:
   the browser (only a "set / not set" flag).
 - **Optional knowledge challenge** (`WEB_UI_UNLOCK_CHALLENGE=transaction|account|payee|category`):
   as an **alternative to the token**, let the user unlock the session by entering data that
-  matches their real budget — recommended is `transaction` (the payee + amount of a recent
-  transaction), pulled read-only from Actual. Either the token or a correct answer unlocks a
+  matches their real budget — recommended is `transaction` (the payee + amount of **two**
+  recent transactions, like a bank's two-micro-deposit ownership check), pulled read-only
+  from Actual. Either the token or a correct answer unlocks a
   session; the token stays the fallback (and is used when the budget is unreachable). Valid
   answers never leave the server, wrong guesses are rate-limited (5 / 15 min), and a correct
   answer grants a short-lived in-memory session ticket.
